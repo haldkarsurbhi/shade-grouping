@@ -49,7 +49,14 @@ def extract_lab_stats(roi_img):
     mean_lab = pixels.mean(axis=0)
     std_lab = pixels.std(axis=0)
 
-    return mean_lab, std_lab
+    # OpenCV 8-bit LAB: L in [0,255], a/b in [0,255] with +128 offset.
+    # CIEDE2000 expects CIE L* in [0,100] and a*, b* in ~[-128, 127].
+    L_corrected = mean_lab[0] * 100.0 / 255.0
+    a_corrected = mean_lab[1] - 128.0
+    b_corrected = mean_lab[2] - 128.0
+    mean_lab_cie = np.array([L_corrected, a_corrected, b_corrected], dtype=np.float64)
+
+    return mean_lab_cie, std_lab
 
 
 # =================================================

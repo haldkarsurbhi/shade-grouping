@@ -6,8 +6,10 @@ from color_engine import delta_e_2000
 
 def assign_shade_group(delta_e):
     """
-    Assigns shade group and decision based on ΔE2000
+    Assigns shade group and decision based on ΔE2000.
+    Takes a single float delta_e; returns (shade, decision).
     """
+    delta_e = float(delta_e)
 
     if delta_e <= 2.0:
         return "A", "ACCEPT"

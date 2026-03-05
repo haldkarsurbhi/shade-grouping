@@ -9,7 +9,7 @@ export const shadeHistory = [
         orderId: "ORD-01",
         date: "2026-01-05",
         supplier: "Arvind Mills",
-        buyer: "Zara"
+        buyer: "PRL"
     },
     {
         rollNo: "R102",
@@ -21,7 +21,7 @@ export const shadeHistory = [
         orderId: "ORD-01",
         date: "2026-01-05",
         supplier: "Vardhman",
-        buyer: "Zara"
+        buyer: "PRL"
     },
     {
         rollNo: "R103",
@@ -33,7 +33,7 @@ export const shadeHistory = [
         orderId: "ORD-02",
         date: "2026-01-06",
         supplier: "Arvind Mills",
-        buyer: "H&M"
+        buyer: "DRESSMEN"
     },
     {
         rollNo: "R104",
@@ -44,8 +44,8 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1616486338812-3dadae4b4f9d?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-02",
         date: "2026-01-06",
-        supplier: "Local Supplier",
-        buyer: "H&M"
+        supplier: "Vardhman",
+        buyer: "Cos"
     },
     {
         rollNo: "R105",
@@ -56,8 +56,8 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-03",
         date: "2026-01-07",
-        supplier: "FabIndia",
-        buyer: "Gap"
+        supplier: "Vardhman",
+        buyer: "PRL"
     },
     {
         rollNo: "R106",
@@ -69,11 +69,11 @@ export const shadeHistory = [
         orderId: "ORD-03",
         date: "2026-01-07",
         supplier: "Vardhman",
-        buyer: "Gap"
+        buyer: "PRL"
     },
     {
         rollNo: "R107",
-        quantity: 130,
+        quantity: 70,
         deltaE: 0.5,
         shade: "A",
         decision: "ACCEPT",
@@ -81,7 +81,7 @@ export const shadeHistory = [
         orderId: "ORD-01",
         date: "2026-01-08",
         supplier: "Arvind Mills",
-        buyer: "Zara"
+        buyer: "Dressmen"
     },
     {
         rollNo: "R108",
@@ -92,7 +92,7 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1596324823106-963b51b32d56?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-02",
         date: "2026-01-08",
-        supplier: "Local Supplier",
-        buyer: "H&M"
+        supplier: "Sidogras",
+        buyer: "cos"
     }
 ];

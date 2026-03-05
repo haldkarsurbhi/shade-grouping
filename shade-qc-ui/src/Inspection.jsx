@@ -1,65 +1,81 @@
 import React, { useState } from 'react';
-import { Camera, Save, Trash2, Maximize2 } from 'lucide-react';
+import { Camera, Save } from 'lucide-react';
 import './styles.css';
+import API from './api/api';
 
 const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [] }) => {
     // Local state for the operator's current session
     const [sessionTests, setSessionTests] = useState([]);
     const [currentRoll, setCurrentRoll] = useState(initialRoll);
     const [previewImage, setPreviewImage] = useState(null);
+    const [imageFile, setImageFile] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Form inputs
     // Form inputs
     const [rollInput, setRollInput] = useState(initialRoll.rollNo);
     const [qtyInput, setQtyInput] = useState(initialRoll.quantity);
     const [buyerInput, setBuyerInput] = useState(initialRoll.buyer);
     const [supplierInput, setSupplierInput] = useState('');
 
+    // Base URL for image src (API returns path like /images/R101.jpg)
+    const imageBaseUrl = API.defaults.baseURL || '';
+
     // --- Helper to get recent images per shade group ---
     const getRecentByShade = (shade) => {
         return history
             .filter(item => item.shade === shade && item.image)
-            .slice(0, 3); // Take last 3
+            .slice(0, 3);
     };
 
-    const handleCapture = () => {
-        // Validation
+    const handleCapture = async () => {
         if (!supplierInput.trim()) {
             alert("Please enter a Supplier name.");
             return;
         }
+        if (!imageFile) {
+            alert("Please select an image file to analyze.");
+            return;
+        }
 
-        // Generate simulated result
-        const randomDelta = (Math.random() * 2.5).toFixed(2);
-        let shade = 'A';
-        let decision = 'ACCEPT';
+        setError(null);
+        setLoading(true);
 
-        if (randomDelta > 0.8) { shade = 'B'; decision = 'ACCEPT'; }
-        if (randomDelta > 1.5) { shade = 'C'; decision = 'HOLD'; }
-        if (randomDelta > 2.5) { shade = 'D'; decision = 'Reject'; } // Using 'D' for reject/bad shade in preview
+        try {
+            const formData = new FormData();
+            formData.append('roll_no', rollInput);
+            formData.append('quantity', Number(qtyInput) || 0);
+            formData.append('image', imageFile);
 
-        // Create Test Object
-        const newTest = {
-            id: Date.now(), // unique ID
-            date: new Date().toISOString().split('T')[0],
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            rollNo: rollInput,
-            quantity: qtyInput,
-            deltaE: randomDelta,
-            shade: shade,
-            shadeGroup: shade,
-            decision: decision,
-            image: currentRoll.imageUrl,
-            buyer: buyerInput,
-            supplier: supplierInput,
-            orderId: "ORD-DEMO"
-        };
+            const { data } = await API.post('/analyze', formData);
 
-        // 1. Add to Local Session
-        setSessionTests([newTest, ...sessionTests]);
+            const imageUrl = data.image ? `${imageBaseUrl}${data.image}` : null;
 
-        // 2. Propagate to Global History (Dashboard)
-        onInspectionComplete(newTest);
+            const newTest = {
+                id: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                rollNo: data.roll_no,
+                quantity: data.quantity,
+                deltaE: data.delta_e,
+                shade: data.shade_group,
+                shadeGroup: data.shade_group,
+                decision: data.decision,
+                image: imageUrl,
+                buyer: buyerInput,
+                supplier: supplierInput,
+                orderId: 'ORD-DEMO',
+            };
+
+            setSessionTests(prev => [newTest, ...prev]);
+            onInspectionComplete(newTest);
+        } catch (err) {
+            const message = err.response?.data?.error || err.message || 'Analysis failed';
+            setError(message);
+            alert(message);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const clearSession = () => setSessionTests([]);
@@ -104,33 +120,54 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                             placeholder="e.g. Arvind Mills"
                         />
                     </div>
+                    <div className="input-group-dense">
+                        <label>Image</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                        />
+                    </div>
                 </div>
 
                 <div className="actions-dense">
-                    <button className="btn btn-primary btn-compact" onClick={handleCapture}>
-                        <Camera size={16} /> Capture Scan
+                    <button
+                        className="btn btn-primary btn-compact"
+                        onClick={handleCapture}
+                        disabled={loading}
+                    >
+                        <Camera size={16} /> {loading ? 'Analyzing…' : 'Capture Scan'}
                     </button>
                     <button className="btn btn-secondary btn-compact">
                         <Save size={16} /> Manual Save
                     </button>
                 </div>
+                {error && (
+                    <div style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                        {error}
+                    </div>
+                )}
             </section>
 
             {/* 2. Main Workspace */}
             <section className="main-workspace">
-                {/* Center: Live Feed */}
                 <div className="live-feed-container">
                     <div className="feed-header">
                         <span className="live-indicator">● LIVE</span>
                         <span className="feed-meta">CAM-01 • 4K HDR</span>
                     </div>
                     <div className="live-viewport">
-                        {currentRoll.imageUrl ? (
+                        {imageFile ? (
+                            <img
+                                src={URL.createObjectURL(imageFile)}
+                                className="feed-image"
+                                alt="Selected for analysis"
+                            />
+                        ) : currentRoll.imageUrl ? (
                             <img src={currentRoll.imageUrl} className="feed-image" alt="Live Feed" />
                         ) : (
-                            <div className="no-signal">Signal Lost</div>
+                            <div className="no-signal">Select an image to analyze</div>
                         )}
-                        {/* Reticle Overlay */}
                         <div className="reticle-box">
                             <div className="corner c-tl"></div>
                             <div className="corner c-tr"></div>
@@ -146,12 +183,10 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                     </div>
                 </div>
 
-                {/* Right: Shade-wise Preview Panel */}
                 <div className="ref-sidebar">
                     <h4 className="panel-title">Visual Shade Match Standards</h4>
                     <div className="shade-preview-container">
 
-                        {/* Shade A Group */}
                         <div className="shade-group-card">
                             <div className="shade-card-header s-a-text">Shade A</div>
                             <div className="preview-grid">
@@ -164,7 +199,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                             </div>
                         </div>
 
-                        {/* Shade B Group */}
                         <div className="shade-group-card">
                             <div className="shade-card-header s-b-text">Shade B</div>
                             <div className="preview-grid">
@@ -177,7 +211,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                             </div>
                         </div>
 
-                        {/* Shade C Group */}
                         <div className="shade-group-card">
                             <div className="shade-card-header s-c-text">Shade C</div>
                             <div className="preview-grid">
@@ -190,7 +223,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                             </div>
                         </div>
 
-                        {/* Shade D/Reject Group */}
                         <div className="shade-group-card">
                             <div className="shade-card-header s-d-text">Shade D (Reject)</div>
                             <div className="preview-grid">
@@ -245,13 +277,19 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                                         <td>{test.supplier || '-'}</td>
                                         <td>{test.quantity} m</td>
                                         <td>
-                                            <span className={test.deltaE > 1.0 ? 'fw-bold' : ''}>{test.deltaE}</span>
+                                            <span className={test.deltaE > 1.0 ? 'fw-bold' : ''}>
+                                                {typeof test.deltaE === 'number' ? test.deltaE.toFixed(2) : test.deltaE}
+                                            </span>
                                         </td>
                                         <td>
-                                            <span className={`shade-badge shade-${test.shade.toLowerCase()}`}>{test.shade}</span>
+                                            <span className={`shade-badge shade-${(test.shade || test.shadeGroup || '').toLowerCase()}`}>
+                                                {test.shade || test.shadeGroup}
+                                            </span>
                                         </td>
                                         <td>
-                                            <span className={`verdict-badge verdict-${test.decision.toLowerCase()}`}>{test.decision}</span>
+                                            <span className={`verdict-badge verdict-${(test.decision || '').toLowerCase()}`}>
+                                                {test.decision}
+                                            </span>
                                         </td>
                                     </tr>
                                 ))
@@ -261,7 +299,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
                 </div>
             </section>
 
-            {/* Simple Modal for Preview */}
             {previewImage && (
                 <div className="modal-backdrop" onClick={() => setPreviewImage(null)}>
                     <div className="modal-content">

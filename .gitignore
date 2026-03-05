@@ -5,3 +5,8 @@ REPORTS/
 .env
 .idea/
 .vscode/
+
+# Dependencies (large – reinstall with pip install / npm install)
+venv/
+shade-qc-ui/node_modules/
+shade-qc-ui/build/

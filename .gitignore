@@ -1,12 +1,36 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Project-generated
 IMAGES/
 REPORTS/
+*.csv.bak
+
+# Env & IDE
 .env
+.env.local
 .idea/
 .vscode/
+*.swp
+*.swo
 
-# Dependencies (large – reinstall with pip install / npm install)
-venv/
-shade-qc-ui/node_modules/
-shade-qc-ui/build/
+# Frontend (reinstall with npm install)
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+frontend/npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

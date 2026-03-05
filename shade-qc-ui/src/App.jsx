@@ -6,19 +6,18 @@ import Sidebar from './Sidebar';
 import Dashboard from './Dashboard';
 import Inspection from './Inspection';
 import Logs from './Logs';
+import { shadeHistory } from './data';
 
 const App = () => {
   // Simple Router State
   const [page, setPage] = useState('dashboard');
 
-  // Global Data State
-  const [history, setHistory] = useState([]);
+  // Global Data State: default to src/data.js so deployed app reflects data.js updates
+  const [history, setHistory] = useState(() => [...shadeHistory]);
   const [loadError, setLoadError] = useState(false);
 
-  // Load CSV Data using PapaParse
+  // Optional: load CSV from public/inspection_data.csv; if present, it overrides data.js
   useEffect(() => {
-    // PUBLIC CSV DATA LOADER
-    // Fetches from public/inspection_data.csv (Requirement: Load /inspection_data.csv)
     const csvUrl = process.env.PUBLIC_URL + '/inspection_data.csv';
 
     Papa.parse(csvUrl, {
@@ -102,13 +101,14 @@ const App = () => {
           setHistory(parsedData);
           setLoadError(false);
         } else {
-          console.warn("No data found in CSV");
-          setLoadError(true);
+          // No CSV data: keep initial data.js (shadeHistory); no error
+          setLoadError(false);
         }
       },
       error: (err) => {
         console.error("CSV Parse Error:", err);
-        setLoadError(true);
+        // Keep data.js on CSV failure so dashboard still shows
+        setLoadError(false);
       }
     });
   }, []);

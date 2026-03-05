@@ -70,7 +70,10 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, history = [
             setSessionTests(prev => [newTest, ...prev]);
             onInspectionComplete(newTest);
         } catch (err) {
-            const message = err.response?.data?.error || err.message || 'Analysis failed';
+            const isNetworkError = err.message === 'Network Error' || err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK';
+            const message = isNetworkError
+                ? 'Connection failed. Start the backend (from project root: uvicorn app:app --reload --port 8000).'
+                : (err.response?.data?.error || err.message || 'Analysis failed');
             setError(message);
             alert(message);
         } finally {

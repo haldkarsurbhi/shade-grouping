@@ -8,7 +8,7 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1596324823106-963b51b32d56?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-01",
         date: "2026-01-05",
-        supplier: "Arvind Mills",
+        supplier: "Vardhman",
         buyer: "PRL"
     },
     {
@@ -32,8 +32,8 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1613909207039-6b173b755cc1?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-02",
         date: "2026-01-06",
-        supplier: "Arvind Mills",
-        buyer: "DRESSMEN"
+        supplier: "Vardhman",
+        buyer: "PRL"
     },
     {
         rollNo: "R104",
@@ -45,7 +45,7 @@ export const shadeHistory = [
         orderId: "ORD-02",
         date: "2026-01-06",
         supplier: "Vardhman",
-        buyer: "Cos"
+        buyer: "PRL"
     },
     {
         rollNo: "R105",
@@ -80,8 +80,8 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1528459801416-a9e53bbf4e17?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-01",
         date: "2026-01-08",
-        supplier: "Arvind Mills",
-        buyer: "Dressmen"
+        supplier: "Vardhman",
+        buyer: "PRL"
     },
     {
         rollNo: "R108",
@@ -92,7 +92,7 @@ export const shadeHistory = [
         image: "https://images.unsplash.com/photo-1596324823106-963b51b32d56?auto=format&fit=crop&q=80&w=300&h=300",
         orderId: "ORD-02",
         date: "2026-01-08",
-        supplier: "Sidogras",
-        buyer: "cos"
+        supplier: "Vardhman",
+        buyer: "PRL"
     }
 ];

@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 import camera as cam_module
@@ -416,7 +416,25 @@ async def regroup_lightness(body: dict):
 
 
 # React production build (npm run build in frontend/) — mounted last so API routes win.
+# CRA with homepage "/" emits /static/... URLs; mount build/static at /static so /ui/ works locally.
 if _spa_ui_available():
+    _static_dir = os.path.join(_UI_BUILD_DIR, "static")
+    if os.path.isdir(_static_dir):
+        app.mount("/static", StaticFiles(directory=_static_dir), name="ui_static")
+    _manifest = os.path.join(_UI_BUILD_DIR, "manifest.json")
+    if os.path.isfile(_manifest):
+
+        @app.get("/manifest.json", include_in_schema=False)
+        async def _spa_manifest():
+            return FileResponse(_manifest)
+
+    _favicon = os.path.join(_UI_BUILD_DIR, "favicon.ico")
+    if os.path.isfile(_favicon):
+
+        @app.get("/favicon.ico", include_in_schema=False)
+        async def _spa_favicon():
+            return FileResponse(_favicon)
+
     app.mount(
         "/ui",
         StaticFiles(directory=_UI_BUILD_DIR, html=True),

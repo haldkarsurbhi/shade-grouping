@@ -581,8 +581,8 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
     return (
         <div className="operator-screen">
             <section className="control-bar-dense">
-                <div className="control-bar-top">
-                    <div className="control-bar-left">
+                <div className="control-bar-top inspection-toolbar">
+                    <div className="inspection-toolbar-left">
                         <div className="inspection-field-grid">
                             <div className="input-group-dense">
                                 <label htmlFor="insp-roll-id">Roll ID</label>
@@ -623,7 +623,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                                 />
                             </div>
                         </div>
-                        <div className="inspection-camera-row">
+                        <div className="inspection-camera-inline">
                             <span className="inspection-camera-label">Camera</span>
                             <div className="camera-actions-inner">
                                 <button
@@ -643,11 +643,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                                 >
                                     Laptop first
                                 </button>
-                                <label
-                                    htmlFor="insp-cam-index"
-                                    className="input-group-dense--inline"
-                                    style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', gap: '6px' }}
-                                >
+                                <label htmlFor="insp-cam-index" className="camera-index-label">
                                     Index
                                     <select
                                         id="insp-cam-index"
@@ -717,11 +713,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                     <strong>0</strong> as the reference). Later rolls get A–D / REJECT from your ΔE rules. Use{' '}
                     <strong>New lot</strong> before another batch; restart the server also clears the reference.
                 </p>
-                {error && (
-                    <div style={{ color: 'var(--color-danger)', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                        {error}
-                    </div>
-                )}
+                {error && <div className="inspection-error-msg">{error}</div>}
             </section>
 
             <section className="main-workspace">
@@ -730,51 +722,28 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         <span className="live-indicator">● LIVE</span>
                         <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
                     </div>
-                    <div className="live-viewport" style={{ position: 'relative', minHeight: 'min(50vh, 420px)' }}>
-                        {currentRoll.imageUrl ? (
-                            <img src={currentRoll.imageUrl} className="feed-image" alt="Last capture" />
-                        ) : pollPreviewUrl ? (
-                            <img
-                                key={streamKey}
-                                ref={mjpegRef}
-                                src={pollPreviewUrl}
-                                className="feed-video"
-                                alt="Live USB camera"
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    minHeight: 240,
-                                    objectFit: 'contain',
-                                    objectPosition: 'center',
-                                    position: 'absolute',
-                                    inset: 0,
-                                    zIndex: 1,
-                                    background: '#000',
-                                }}
-                            />
-                        ) : (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    zIndex: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#94a3b8',
-                                    fontSize: '0.9rem',
-                                    background: '#0f172a',
-                                }}
-                            >
-                                Loading camera preview…
-                            </div>
-                        )}
-                        <div className="reticle-box" style={{ pointerEvents: 'none', zIndex: 2 }}>
+                    <div className="live-feed-body">
+                        <div className="live-viewport live-viewport--ratio">
+                            {currentRoll.imageUrl ? (
+                                <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
+                            ) : pollPreviewUrl ? (
+                                <img
+                                    key={streamKey}
+                                    ref={mjpegRef}
+                                    src={pollPreviewUrl}
+                                    className="feed-media feed-video"
+                                    alt="Live USB camera"
+                                />
+                            ) : (
+                                <div className="feed-placeholder">Loading camera preview…</div>
+                            )}
+                        <div className="reticle-box reticle-overlay">
                             <div className="corner c-tl"></div>
                             <div className="corner c-tr"></div>
                             <div className="corner c-bl"></div>
                             <div className="corner c-br"></div>
                             <div className="center-cross"></div>
+                        </div>
                         </div>
                     </div>
 
@@ -855,9 +824,9 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                 </div>
             </section>
 
-            <section className="session-panel">
+            <section className="session-panel session-panel--card">
                 <div className="panel-header-dense">
-                    <h4>Live Inspection Session Log</h4>
+                    <h4 className="session-log-title">Live Inspection Session Log</h4>
                     <div className="session-stats">
                         <span className="count-badge">{sessionTests.length} Records</span>
                     </div>

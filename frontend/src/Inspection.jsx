@@ -717,50 +717,31 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             </section>
 
             <section className="main-workspace">
-                <div className="live-feed-container">
+                <div className="live-feed-container live-feed-container--square">
                     <div className="feed-header">
                         <span className="live-indicator">● LIVE</span>
                         <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
                     </div>
-                    <div className="live-feed-body">
-                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-                            <div
-                                style={{
-                                    width: '100%',
-                                    maxWidth: '500px',
-                                    aspectRatio: '1 / 1',
-                                    background: '#0b1220',
-                                    borderRadius: '10px',
-                                    overflow: 'hidden',
-                                    border: '1px solid #334155',
-                                    position: 'relative',
-                                }}
-                            >
-                                {currentRoll.imageUrl ? (
-                                    <img
-                                        src={currentRoll.imageUrl}
-                                        className="feed-media feed-image"
-                                        alt="Last capture"
-                                    />
-                                ) : pollPreviewUrl ? (
-                                    <img
-                                        key={streamKey}
-                                        ref={mjpegRef}
-                                        src={pollPreviewUrl}
-                                        className="feed-media feed-video"
-                                        alt="Live USB camera"
-                                    />
-                                ) : (
-                                    <div className="feed-placeholder">Loading camera preview…</div>
-                                )}
-                                <div className="reticle-box reticle-overlay">
-                                    <div className="corner c-tl"></div>
-                                    <div className="corner c-tr"></div>
-                                    <div className="corner c-bl"></div>
-                                    <div className="corner c-br"></div>
-                                    <div className="center-cross"></div>
-                                </div>
-                            </div>
+                    <div className="live-feed-body live-feed-body--square">
+                        {currentRoll.imageUrl ? (
+                            <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
+                        ) : pollPreviewUrl ? (
+                            <img
+                                key={streamKey}
+                                ref={mjpegRef}
+                                src={pollPreviewUrl}
+                                className="feed-media feed-video"
+                                alt="Live USB camera"
+                            />
+                        ) : (
+                            <div className="feed-placeholder">Loading camera preview…</div>
+                        )}
+                        <div className="reticle-box reticle-overlay">
+                            <div className="corner c-tl"></div>
+                            <div className="corner c-tr"></div>
+                            <div className="corner c-bl"></div>
+                            <div className="corner c-br"></div>
+                            <div className="center-cross"></div>
                         </div>
                     </div>
 

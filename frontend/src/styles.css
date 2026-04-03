@@ -546,11 +546,27 @@ body {
   margin-right: 2px;
 }
 
-.camera-mode-select {
-  min-width: 200px;
-  max-width: min(280px, 100%);
-  padding: 8px 10px;
-  min-height: 36px;
+.camera-actions-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.camera-index-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.camera-index-select {
+  padding: 6px 8px;
+  min-height: 32px;
   border-radius: 6px;
   border: 1px solid var(--border-focus);
   font-size: 0.8125rem;
@@ -702,38 +718,31 @@ body {
   box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
 }
 
+/* Outer card is the square: header + preview + footer share one square box */
+.live-feed-container--square {
+  width: 100%;
+  max-width: 500px;
+  margin-inline: auto;
+  align-self: start;
+  aspect-ratio: 1 / 1;
+  background: #0b1220;
+  border-radius: 12px;
+  border: 1px solid #475569;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
+}
+
 .live-feed-body {
   padding: 12px;
   background: #0c1222;
   flex-shrink: 0;
-  flex-grow: 0;
 }
 
-.live-preview-square-wrap {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
-
-.live-preview-square {
-  width: 100%;
-  max-width: 500px;
-  aspect-ratio: 1 / 1;
+.live-feed-body.live-feed-body--square {
+  flex: 1 1 0;
+  min-height: 0;
+  padding: 0;
   background: #0b1220;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #334155;
   position: relative;
-  box-sizing: border-box;
-}
-
-.live-viewport-square-inner {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  background: #0f172a;
 }
 
 .feed-header {
@@ -780,11 +789,6 @@ body {
   font-size: 0.6875rem;
   border-top: 1px solid #334155;
   flex-shrink: 0;
-}
-
-.live-viewport {
-  position: relative;
-  background: #0f172a;
 }
 
 .feed-media {

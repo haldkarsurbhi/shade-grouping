@@ -23,8 +23,19 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
         let cancelled = false;
         const poll = async () => {
             try {
-                const { data } = await API.get('/camera-status', { timeout: 5000 });
+                const res = await API.get('/camera-status', { timeout: 5000 });
                 if (cancelled) return;
+                const data = res.data;
+                const ct = String(res.headers['content-type'] || '');
+                // Static hosts (e.g. Vercel) often return index.html 200 for unknown paths — not JSON
+                if (
+                    !ct.includes('application/json') ||
+                    typeof data !== 'object' ||
+                    data === null ||
+                    typeof data.ok !== 'boolean'
+                ) {
+                    throw new Error('not_api');
+                }
                 const ord = (data.try_order || []).join('→');
                 setCameraHint(
                     data.ok
@@ -32,7 +43,13 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         : `No camera yet · try order ${ord || '—'} (Use USB/Sony first)`
                 );
             } catch {
-                if (!cancelled) setCameraHint('Backend offline — start uvicorn on :8000');
+                if (!cancelled) {
+                    setCameraHint(
+                        process.env.NODE_ENV === 'production'
+                            ? 'No API — set REACT_APP_API_URL in Vercel to your FastAPI URL, redeploy, then hard-refresh.'
+                            : 'Backend offline — start uvicorn on :8000'
+                    );
+                }
             }
         };
         poll();
@@ -67,11 +84,12 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
         if (typeof window === 'undefined') {
             return '';
         }
-        const { hostname, protocol } = window.location;
+        const { hostname, origin } = window.location;
         if (hostname === 'localhost' || hostname === '127.0.0.1') {
             return 'http://127.0.0.1:8000';
         }
-        return trimOrigin(`${protocol}//${hostname}:8000`);
+        // Vercel etc.: never use :8000 on the page origin; use API env or same origin (footer label only)
+        return trimOrigin(origin);
     }, []);
 
     const reloadStream = useCallback(() => {

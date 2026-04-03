@@ -8,6 +8,7 @@ function resolveBaseURL() {
   if (process.env.NODE_ENV === "development") {
     return "http://127.0.0.1:8000";
   }
+  // Production build without env: same origin (static host has no FastAPI — set REACT_APP_API_URL on Vercel)
   return "";
 }
 

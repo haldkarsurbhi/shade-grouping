@@ -1,0 +1,13 @@
+{
+  "name": "shade-qc-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Electron shell: starts FastAPI + opens the ShaDE UI",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^28.3.3"
+  }
+}

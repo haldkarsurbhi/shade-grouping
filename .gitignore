@@ -28,8 +28,16 @@ REPORTS/
 # Frontend (reinstall with npm install)
 frontend/node_modules/
 frontend/build/
+
+# Desktop (Electron)
+desktop/node_modules/
 frontend/.env.local
 frontend/npm-debug.log*
+
+# Local DB / env (set REACT_APP_* in Vercel / Render dashboards)
+shade_qc.db
+frontend/.env.development
+frontend/.env.production
 
 # OS
 .DS_Store

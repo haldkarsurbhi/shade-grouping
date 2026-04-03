@@ -160,8 +160,8 @@ const Dashboard = ({ history }) => {
                     <div className="widget-header">
                         <h3>Shade Group Distribution</h3>
                     </div>
-                    <div className="widget-body" style={{ height: 280 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="widget-body" style={{ height: 280, minWidth: 0, width: '100%' }}>
+                        <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={distributionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                 <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
@@ -185,8 +185,8 @@ const Dashboard = ({ history }) => {
                     <div className="widget-header">
                         <h3>Process Consistency (ΔE)</h3>
                     </div>
-                    <div className="widget-body" style={{ height: 280 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="widget-body" style={{ height: 280, minWidth: 0, width: '100%' }}>
+                        <ResponsiveContainer width="100%" height={260}>
                             <LineChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                 <XAxis dataKey="idx" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />
@@ -206,8 +206,8 @@ const Dashboard = ({ history }) => {
                     <div className="widget-header">
                         <h3>Supplier-wise Shade Grouping</h3>
                     </div>
-                    <div className="widget-body" style={{ height: 320 }}>
-                        <ResponsiveContainer width="100%" height="100%">
+                    <div className="widget-body" style={{ height: 320, minWidth: 0, width: '100%' }}>
+                        <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={supplierChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                                 <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} axisLine={false} />

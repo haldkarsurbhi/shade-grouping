@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, ChevronRight } from 'lucide-react';
 import './styles.css';
 import Papa from 'papaparse';
@@ -7,6 +7,10 @@ import Dashboard from './Dashboard';
 import Inspection from './Inspection';
 import Logs from './Logs';
 import { shadeHistory } from './data';
+
+const DEFAULT_IMAGE_BY_ROLL = new Map(
+  shadeHistory.map((x) => [String(x.rollNo).trim().toUpperCase(), x.image])
+);
 
 const App = () => {
   // Simple Router State
@@ -48,6 +52,10 @@ const App = () => {
             let shadeGroup = getVal('Shade Group');
             let verdict = getVal('Verdict');
             let image = getVal('Image');
+            if (!image || !String(image).trim()) {
+              const rk = String(rollId || '').trim().toUpperCase();
+              image = DEFAULT_IMAGE_BY_ROLL.get(rk) || '';
+            }
 
             // STEP 3: AUTO-FILL (ONLY IF FIELD IS EMPTY)
             // Buyer
@@ -60,21 +68,21 @@ const App = () => {
             let dE = parseFloat(deltaE);
             if (isNaN(dE)) dE = 0;
 
-            // Shade Group Logic
+            // Shade Group Logic (matches backend assign_shade_group: reject only if ΔE >= 5)
             if (!shadeGroup || !shadeGroup.trim()) {
-              if (dE <= 1.2) shadeGroup = 'A';
-              else if (dE > 1.2 && dE <= 2.0) shadeGroup = 'B';
-              else if (dE > 2.0 && dE <= 3.0) shadeGroup = 'C';
-              else shadeGroup = 'D'; // >3.0
+              if (dE >= 5) shadeGroup = 'REJECT';
+              else if (dE < 1.25) shadeGroup = 'A';
+              else if (dE < 2.5) shadeGroup = 'B';
+              else if (dE < 3.75) shadeGroup = 'C';
+              else shadeGroup = 'D';
             }
 
             // Verdict Logic
             if (!verdict || !verdict.trim()) {
               const s = shadeGroup.toUpperCase().trim();
-              if (['A', 'B'].includes(s)) verdict = 'ACCEPT';
-              else if (['C'].includes(s)) verdict = 'HOLD';
-              else if (['D', 'REJECT'].includes(s)) verdict = 'REJECT';
-              else verdict = 'HOLD'; // default fallback
+              if (s === 'REJECT' || dE >= 5) verdict = 'REJECT';
+              else if (['A', 'B', 'C', 'D'].includes(s)) verdict = 'ACCEPT';
+              else verdict = 'ACCEPT';
             }
 
             // Normalize Verification Text
@@ -95,10 +103,14 @@ const App = () => {
               deltaE: dE,
               shade: shadeGroup,
               decision: verdict,
-              image: image || null
+              image: image && String(image).trim() ? image.trim() : null
             };
           });
-          setHistory(parsedData);
+          // Never wipe live inspection rows: CSV loads async; captures use numeric `id` (Date.now()).
+          setHistory((prev) => {
+            const liveCaptures = prev.filter((row) => typeof row.id === 'number');
+            return [...liveCaptures, ...parsedData];
+          });
           setLoadError(false);
         } else {
           // No CSV data: keep initial data.js (shadeHistory); no error
@@ -120,12 +132,32 @@ const App = () => {
     buyer: "Zara International",
     deltaE: 0.00,
     shadeGroup: "-",
-    imageUrl: "https://images.unsplash.com/photo-1596324823106-963b51b32d56?auto=format&fit=crop&q=80&w=600&h=400"
+    imageUrl: null,
   });
 
   const handleInspectionComplete = (newTest) => {
     // Merge for UI consistency during session
     setHistory(prev => [newTest, ...prev]);
+  };
+
+  const handleHistoryRegroup = (updates) => {
+    if (!updates?.length) return;
+    const m = new Map(
+      updates.map((x) => [String(x.rollNo).trim().toUpperCase(), x])
+    );
+    setHistory((prev) =>
+      prev.map((h) => {
+        const k = String(h.rollNo).trim().toUpperCase();
+        const u = m.get(k);
+        if (!u) return h;
+        return {
+          ...h,
+          shade: u.shadeGroup,
+          shadeGroup: u.shadeGroup,
+          decision: u.decision,
+        };
+      })
+    );
   };
 
   return (
@@ -183,6 +215,7 @@ const App = () => {
           <Inspection
             activeRoll={activeRoll}
             onInspectionComplete={handleInspectionComplete}
+            onHistoryRegroup={handleHistoryRegroup}
           />
         )}
 

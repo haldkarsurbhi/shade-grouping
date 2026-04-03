@@ -624,45 +624,57 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                             </div>
                         </div>
                         <div className="inspection-camera-inline">
-                            <label htmlFor="insp-camera-mode" className="inspection-camera-label">
-                                Camera
-                            </label>
-                            <select
-                                id="insp-camera-mode"
-                                disabled={camSwitchBusy}
-                                className="camera-mode-select"
-                                defaultValue=""
-                                aria-label="Camera source and device"
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    if (!v) return;
-                                    if (v === 'usb_first') postCameraPreference('usb_first');
-                                    else if (v === 'laptop_first') postCameraPreference('laptop_first');
-                                    else if (v === 'default') postCameraPreference('default');
-                                    else if (v.startsWith('idx:')) postCameraIndex(parseInt(v.slice(4), 10));
-                                    e.target.value = '';
-                                }}
-                            >
-                                <option value="">Choose camera action…</option>
-                                <optgroup label="Source order">
-                                    <option value="usb_first">USB / Sony first</option>
-                                    <option value="laptop_first">Laptop first</option>
-                                    <option value="default">Default order</option>
-                                </optgroup>
-                                <optgroup label="Device index">
-                                    {[0, 1, 2, 3, 4, 5].map((i) => (
-                                        <option key={i} value={`idx:${i}`}>
-                                            Use index {i}
-                                        </option>
-                                    ))}
-                                </optgroup>
-                            </select>
+                            <span className="inspection-camera-label">Camera</span>
+                            <div className="camera-actions-inner">
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-compact"
+                                    disabled={camSwitchBusy}
+                                    onClick={() => postCameraPreference('usb_first')}
+                                    title="Try indices 1,2,3 before 0 — use external Sony/USB"
+                                >
+                                    USB / Sony first
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-compact"
+                                    disabled={camSwitchBusy}
+                                    onClick={() => postCameraPreference('laptop_first')}
+                                >
+                                    Laptop first
+                                </button>
+                                <label htmlFor="insp-cam-index" className="camera-index-label">
+                                    Index
+                                    <select
+                                        id="insp-cam-index"
+                                        disabled={camSwitchBusy}
+                                        defaultValue=""
+                                        onChange={(e) => {
+                                            const v = e.target.value;
+                                            if (v === '') return;
+                                            postCameraIndex(parseInt(v, 10));
+                                            e.target.value = '';
+                                        }}
+                                        className="camera-index-select"
+                                    >
+                                        <option value="">—</option>
+                                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                                            <option key={i} value={i}>
+                                                {i}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
                     <div className="actions-dense">
                         <button className="btn btn-primary btn-compact" onClick={handleCapture} disabled={loading}>
                             <Camera size={16} /> {loading ? 'Analyzing…' : 'Capture Scan'}
+                        </button>
+                        <button type="button" className="btn btn-secondary btn-compact" onClick={reloadStream}>
+                            Reload stream
                         </button>
                         <button
                             type="button"
@@ -711,29 +723,42 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
                     </div>
                     <div className="live-feed-body">
-                        <div className="live-preview-square-wrap">
-                            <div className="live-preview-square">
-                                <div className="live-viewport live-viewport-square-inner">
-                                    {currentRoll.imageUrl ? (
-                                        <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
-                                    ) : pollPreviewUrl ? (
-                                        <img
-                                            key={streamKey}
-                                            ref={mjpegRef}
-                                            src={pollPreviewUrl}
-                                            className="feed-media feed-video"
-                                            alt="Live USB camera"
-                                        />
-                                    ) : (
-                                        <div className="feed-placeholder">Loading camera preview…</div>
-                                    )}
-                                    <div className="reticle-box reticle-overlay">
-                                        <div className="corner c-tl"></div>
-                                        <div className="corner c-tr"></div>
-                                        <div className="corner c-bl"></div>
-                                        <div className="corner c-br"></div>
-                                        <div className="center-cross"></div>
-                                    </div>
+                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+                            <div
+                                style={{
+                                    width: '100%',
+                                    maxWidth: '500px',
+                                    aspectRatio: '1 / 1',
+                                    background: '#0b1220',
+                                    borderRadius: '10px',
+                                    overflow: 'hidden',
+                                    border: '1px solid #334155',
+                                    position: 'relative',
+                                }}
+                            >
+                                {currentRoll.imageUrl ? (
+                                    <img
+                                        src={currentRoll.imageUrl}
+                                        className="feed-media feed-image"
+                                        alt="Last capture"
+                                    />
+                                ) : pollPreviewUrl ? (
+                                    <img
+                                        key={streamKey}
+                                        ref={mjpegRef}
+                                        src={pollPreviewUrl}
+                                        className="feed-media feed-video"
+                                        alt="Live USB camera"
+                                    />
+                                ) : (
+                                    <div className="feed-placeholder">Loading camera preview…</div>
+                                )}
+                                <div className="reticle-box reticle-overlay">
+                                    <div className="corner c-tl"></div>
+                                    <div className="corner c-tr"></div>
+                                    <div className="corner c-bl"></div>
+                                    <div className="corner c-br"></div>
+                                    <div className="center-cross"></div>
                                 </div>
                             </div>
                         </div>

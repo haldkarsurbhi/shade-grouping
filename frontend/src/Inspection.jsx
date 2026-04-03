@@ -717,13 +717,13 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             </section>
 
             <section className="main-workspace">
-                <div className="live-feed-aspect">
-                    <div className="live-feed-aspect-inner">
+                <div className="inspection-col-camera">
+                    <div className="live-feed-card">
                         <div className="feed-header">
                             <span className="live-indicator">● LIVE</span>
                             <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
                         </div>
-                        <div className="live-feed-body live-feed-body--square">
+                        <div className="live-feed-preview-square">
                             {currentRoll.imageUrl ? (
                                 <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
                             ) : pollPreviewUrl ? (
@@ -762,7 +762,8 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                     </div>
                 </div>
 
-                <div className="ref-sidebar">
+                <div className="inspection-col-shades">
+                    <div className="ref-sidebar">
                     <h4 className="panel-title">Visual Shade Match Standards</h4>
                     <div className="shade-preview-container">
                         <div className="shade-group-card">
@@ -820,6 +821,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                                 )}
                             </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             </section>

@@ -693,7 +693,7 @@ body {
 .main-workspace {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 20px;
   padding: 12px 1.25rem 10px;
   min-height: 0;
@@ -701,9 +701,33 @@ body {
   align-items: stretch;
 }
 
-@media (max-width: 960px) {
-  .main-workspace {
-    grid-template-columns: 1fr;
+.inspection-col-camera {
+  grid-column: span 12;
+  min-width: 0;
+  min-height: 0;
+  align-self: start;
+}
+
+.inspection-col-shades {
+  grid-column: span 12;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspection-col-shades .ref-sidebar {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+@media (min-width: 1024px) {
+  .inspection-col-camera {
+    grid-column: span 7;
+  }
+
+  .inspection-col-shades {
+    grid-column: span 5;
   }
 }
 
@@ -718,32 +742,18 @@ body {
   box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
 }
 
-/*
- * True square outer box (header + preview + footer): flex + aspect-ratio alone can grow
- * past 1:1 in some layouts; padding-top hack fixes width==height from column width.
- */
-.live-feed-aspect {
-  width: min(100%, 500px);
-  max-width: 500px;
-  margin-inline: auto;
-  align-self: start;
-  justify-self: center;
-  position: relative;
-  box-sizing: border-box;
+.live-feed-body {
+  padding: 12px;
+  background: #0c1222;
+  flex-shrink: 0;
 }
 
-.live-feed-aspect::before {
-  content: '';
-  display: block;
-  padding-top: 100%;
-}
-
-.live-feed-aspect-inner {
-  position: absolute;
-  inset: 0;
+/* Camera card: full width of column; square on preview block only */
+.live-feed-card {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  min-width: 0;
   overflow: hidden;
   background: #0b1220;
   border-radius: 12px;
@@ -752,24 +762,18 @@ body {
   box-sizing: border-box;
 }
 
-.live-feed-body {
-  padding: 12px;
-  background: #0c1222;
-  flex-shrink: 0;
-}
-
-.live-feed-body.live-feed-body--square {
-  flex: 1 1 0;
-  min-height: 0;
-  padding: 0;
-  background: #0b1220;
+.live-feed-preview-square {
+  width: 100%;
+  aspect-ratio: 1 / 1;
   position: relative;
+  overflow: hidden;
+  background: #0b1220;
+  flex-shrink: 0;
 }
 
 .feed-header {
   background: #1e293b;
-  min-height: 36px;
-  padding: 0 14px;
+  padding: 8px 14px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -800,8 +804,7 @@ body {
 
 .feed-footer {
   background: #1e293b;
-  min-height: 32px;
-  padding: 0 14px;
+  padding: 6px 14px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px 16px;
@@ -851,6 +854,7 @@ body {
   min-width: 0;
   overflow: hidden;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+  height: auto;
 }
 
 .ref-sidebar .panel-title {
@@ -863,6 +867,7 @@ body {
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  flex-shrink: 0;
 }
 
 .panel-title {
@@ -885,9 +890,10 @@ body {
   gap: 12px;
   overflow-y: auto;
   overflow-x: hidden;
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   align-content: stretch;
+  align-items: stretch;
 }
 
 .shade-group-card {
@@ -898,7 +904,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
+  align-self: stretch;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.07);
   transition: box-shadow 0.2s;
 }
@@ -950,8 +956,8 @@ body {
   gap: 8px;
   flex-wrap: wrap;
   align-content: flex-start;
-  flex: 1;
-  min-height: 72px;
+  flex: 1 1 0;
+  min-height: 0;
   background: rgba(248, 250, 252, 0.5);
 }
 

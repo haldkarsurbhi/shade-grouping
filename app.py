@@ -2,8 +2,10 @@
 Single FastAPI application for SHADE – Fabric Shade Matching & Grouping.
 Consolidates root, health, set-master, analyze, and live USB camera (MJPEG) stream.
 """
+import datetime
 import logging
 import os
+import re
 import shutil
 import threading
 import time
@@ -19,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 import camera as cam_module
 from color_engine import preprocess_roi, extract_lab_stats, delta_e_2000
 from grouping import assign_shade_group, regroup_shades_by_l_star
-from data_store import save_results
+from data_store import append_inspection_record, list_inspection_records, save_results
 
 # ---------------------------------------------------------------------------
 # App instance (single)
@@ -82,6 +84,13 @@ def _init_master_lab():
 
 
 _init_master_lab()
+
+
+def _safe_roll_stem(roll_no: str) -> str:
+    s = re.sub(r"[^\w\-.]+", "_", str(roll_no).strip())
+    s = s.strip("._") or "roll"
+    return s[:120]
+
 
 # ---------------------------------------------------------------------------
 # Live camera (single capture; USB/external preferred over laptop cam)
@@ -336,14 +345,26 @@ async def reset_lot_reference():
     }
 
 
+@app.get("/inspection-records")
+def get_inspection_records():
+    """Saved captures (newest first) for dashboard / logs after refresh."""
+    rows = list_inspection_records()
+    rows.reverse()
+    return {"records": rows}
+
+
 @app.post("/analyze")
 async def analyze_roll(
     roll_no: str = Form(...),
     quantity: float = Form(...),
     image: UploadFile = Form(...),
+    buyer: str = Form(""),
+    supplier: str = Form(""),
 ):
+    capture_id = int(time.time() * 1000)
     try:
-        path = f"{UPLOAD_DIR}/{roll_no}.jpg"
+        fname = f"{_safe_roll_stem(roll_no)}_{capture_id}.jpg"
+        path = os.path.join(UPLOAD_DIR, fname)
         with open(path, "wb") as f:
             shutil.copyfileobj(image.file, f)
 
@@ -368,6 +389,7 @@ async def analyze_roll(
             shade, decision = assign_shade_group(delta_e)
             is_lot_reference = False
 
+        rel_image = f"/images/{fname}"
         result = {
             "roll_no": roll_no,
             "lab": mean_lab.tolist(),
@@ -375,18 +397,44 @@ async def analyze_roll(
             "shade_group": shade,
             "decision": decision,
             "quantity": quantity,
-            "image": f"/images/{roll_no}.jpg",
+            "image": rel_image,
             "is_lot_reference": is_lot_reference,
+            "capture_id": capture_id,
         }
+
+        now = datetime.datetime.now()
+        log_row = {
+            "id": capture_id,
+            "persistedFromApi": True,
+            "date": now.date().isoformat(),
+            "time": now.strftime("%H:%M"),
+            "rollNo": roll_no,
+            "buyer": (buyer or "").strip(),
+            "supplier": (supplier or "").strip(),
+            "quantity": quantity,
+            "deltaE": float(delta_e),
+            "shade": shade,
+            "shadeGroup": shade,
+            "decision": decision,
+            "image": rel_image,
+            "lab": mean_lab.tolist(),
+            "isLotReference": is_lot_reference,
+            "orderId": "CAPTURE",
+        }
+        append_inspection_record(log_row)
 
         save_results([{
             "roll_no": roll_no,
+            "image_path": path,
             "L*": mean_lab[0],
             "a*": mean_lab[1],
             "b*": mean_lab[2],
             "delta_e": round(delta_e, 2),
             "shade_group": shade,
             "decision": decision,
+            "quantity": quantity,
+            "buyer": (buyer or "").strip(),
+            "supplier": (supplier or "").strip(),
         }])
 
         return result

@@ -1,9 +1,38 @@
 from grouping import assign_shade_group
 from color_engine import delta_e_2000
+import json
 import numpy as np
+from pathlib import Path
+from typing import Any, Dict, List
 
 # ----------- GLOBAL STORAGE -----------
 ROLL_DATA = []
+
+INSPECTION_LOG_PATH = Path(__file__).resolve().parent / "inspection_records.jsonl"
+
+
+def append_inspection_record(record: Dict[str, Any]) -> None:
+    """Append one inspection row to JSONL on disk (survives server restarts)."""
+    line = json.dumps(record, ensure_ascii=False)
+    with open(INSPECTION_LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def list_inspection_records() -> List[Dict[str, Any]]:
+    """All persisted captures, oldest first (caller may reverse)."""
+    if not INSPECTION_LOG_PATH.is_file():
+        return []
+    out: List[Dict[str, Any]] = []
+    with open(INSPECTION_LOG_PATH, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return out
 
 def add_roll(roll_no, image_path, lab):
     ROLL_DATA.append({

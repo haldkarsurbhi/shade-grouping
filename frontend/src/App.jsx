@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, ChevronRight } from 'lucide-react';
 import './styles.css';
 import Papa from 'papaparse';
+import API from './api/api';
 import Sidebar from './Sidebar';
 import Dashboard from './Dashboard';
 import Inspection from './Inspection';
@@ -12,6 +13,15 @@ const DEFAULT_IMAGE_BY_ROLL = new Map(
   shadeHistory.map((x) => [String(x.rollNo).trim().toUpperCase(), x.image])
 );
 
+function resolveHistoryImageUrl(imagePath) {
+  if (imagePath == null || imagePath === '') return null;
+  const s = String(imagePath).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  const base = (API.defaults.baseURL || '').replace(/\/$/, '');
+  if (!base) return s.startsWith('/') ? s : `/${s}`;
+  return `${base}${s.startsWith('/') ? s : `/${s}`}`;
+}
+
 const App = () => {
   // Simple Router State
   const [page, setPage] = useState('dashboard');
@@ -19,6 +29,31 @@ const App = () => {
   // Global Data State: default to src/data.js so deployed app reflects data.js updates
   const [history, setHistory] = useState(() => [...shadeHistory]);
   const [loadError, setLoadError] = useState(false);
+
+  // Reload captures saved by the backend (images under /images + inspection_records.jsonl)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await API.get('/inspection-records');
+        if (cancelled || !data?.records?.length) return;
+        const mapped = data.records.map((r) => ({
+          ...r,
+          image: resolveHistoryImageUrl(r.image),
+        }));
+        setHistory((prev) => {
+          const seen = new Set(mapped.map((x) => x.id));
+          const rest = prev.filter((row) => !seen.has(row.id));
+          return [...mapped, ...rest];
+        });
+      } catch {
+        /* API offline — keep local/demo data */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Optional: load CSV from public/inspection_data.csv; if present, it overrides data.js
   useEffect(() => {
@@ -90,6 +125,12 @@ const App = () => {
             if (verdict === 'ACCEPTED') verdict = 'ACCEPT';
             if (verdict === 'REJECTED') verdict = 'REJECT';
 
+            // Shade D is not a reject; only ΔE ≥ 5 (or explicit REJECT group) is rejected
+            const sg = String(shadeGroup || '').toUpperCase().trim();
+            if (verdict === 'REJECT' && dE < 5 && sg === 'D') {
+              verdict = 'ACCEPT';
+            }
+
             // Ensure Date has a default if really missing
             if (!date) date = new Date().toISOString().split('T')[0];
 
@@ -106,10 +147,12 @@ const App = () => {
               image: image && String(image).trim() ? image.trim() : null
             };
           });
-          // Never wipe live inspection rows: CSV loads async; captures use numeric `id` (Date.now()).
+          // Keep in-memory captures and server-persisted rows; CSV supplements demo data.
           setHistory((prev) => {
-            const liveCaptures = prev.filter((row) => typeof row.id === 'number');
-            return [...liveCaptures, ...parsedData];
+            const keep = prev.filter(
+              (row) => typeof row.id === 'number' || row.persistedFromApi === true
+            );
+            return [...keep, ...parsedData];
           });
           setLoadError(false);
         } else {

@@ -68,24 +68,27 @@ export const parseInspectionCSV = (csvText) => {
             // Case A: Verdict missing, calculate from Shade
             if (shade) {
                 const s = shade.toUpperCase();
-                if (['A', 'B'].includes(s)) decision = 'ACCEPT';
+                if (s === 'REJECT') decision = 'REJECT';
+                else if (['A', 'B', 'D'].includes(s)) decision = 'ACCEPT';
                 else if (s === 'C') decision = 'HOLD';
-                else if (['D', 'REJECT'].includes(s)) decision = 'REJECT';
             }
-            // Case B: Verdict AND Shade missing, calculate from DeltaE
+            // Case B: Verdict AND Shade missing, calculate from DeltaE (match backend assign_shade_group)
             else if (!isNaN(deltaE)) {
-                if (deltaE <= 1.2) {
+                if (deltaE >= 5) {
+                    shade = 'REJECT';
+                    decision = 'REJECT';
+                } else if (deltaE < 1.25) {
                     shade = 'A';
                     decision = 'ACCEPT';
-                } else if (deltaE <= 2.0) {
+                } else if (deltaE < 2.5) {
                     shade = 'B';
                     decision = 'ACCEPT';
-                } else if (deltaE <= 3.0) {
+                } else if (deltaE < 3.75) {
                     shade = 'C';
-                    decision = 'HOLD';
+                    decision = 'ACCEPT';
                 } else {
                     shade = 'D';
-                    decision = 'REJECT';
+                    decision = 'ACCEPT';
                 }
             } else {
                 // If all missing, default to Unknown/Hold or similar safety? 

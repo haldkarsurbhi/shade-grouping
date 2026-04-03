@@ -16,6 +16,7 @@ build/
 IMAGES/
 REPORTS/
 *.csv.bak
+inspection_records.jsonl
 
 # Env & IDE
 .env

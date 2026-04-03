@@ -261,6 +261,8 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             const formData = new FormData();
             formData.append('roll_no', rollInput);
             formData.append('quantity', Number(qtyInput) || 0);
+            formData.append('buyer', buyerInput || '');
+            formData.append('supplier', supplierInput || '');
             formData.append('image', blob, `${rollInput}.jpg`);
 
             const { data } = await API.post('/analyze', formData);
@@ -269,7 +271,8 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             const lab = Array.isArray(data.lab) && data.lab.length >= 3 ? data.lab : null;
 
             const newTest = {
-                id: Date.now(),
+                id: typeof data.capture_id === 'number' ? data.capture_id : Date.now(),
+                persistedFromApi: true,
                 date: new Date().toISOString().split('T')[0],
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                 rollNo: data.roll_no,
@@ -827,7 +830,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         </div>
 
                         <div className="shade-group-card">
-                            <div className="shade-card-header s-d-text">Shade D (Reject)</div>
+                            <div className="shade-card-header s-d-text">Shade D</div>
                             <div className="preview-grid">
                                 {getRecentByShade('D').map((item, i) => (
                                     <div key={i} className="preview-thumb" onClick={() => setPreviewImage(item.image)}>

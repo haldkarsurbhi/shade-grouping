@@ -1,7 +1,7 @@
 Date,Roll ID,Buyer,Supplier,Quantity (m),DeltaE,Shade Group,Verdict,Image
 2026-01-05,R101,Zara,Arvind Mills,120,1.2,A,ACCEPT,
 2026-01-05,R102,Zara,Vardhman,95,3.6,B,ACCEPT,
-2026-01-06,R103,H&M,Arvind Mills,80,6.4,D,HOLD,
+2026-01-06,R103,H&M,Arvind Mills,80,6.4,REJECT,REJECT,
 2026-01-06,R104,H&M,Local Supplier,60,11.2,REJECT,REJECT,
 2026-01-07,R105,Gap,FabIndia,110,0.8,A,ACCEPT,
 2026-01-07,R106,Gap,Vardhman,100,2.1,C,HOLD,

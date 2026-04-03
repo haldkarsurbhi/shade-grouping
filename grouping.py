@@ -68,7 +68,8 @@ def regroup_shades_by_l_star(rolls: list[dict]) -> list[dict]:
     """
     Reassign shade A–D from current batch L* only (lightness quartiles).
     Higher L* = lighter; lightest quarter → A, then B, C, darkest → D.
-    Decisions: A/B ACCEPT, C HOLD, D REJECT (aligned with four-card UI).
+    Decisions: A/B ACCEPT, C HOLD, D ACCEPT — same as ΔE flow: only ΔE ≥ 5 is REJECT,
+    and L* regroup does not imply rejection for the D quartile.
     Input rows may include roll_no and L_star, L*, or lab[0]. Output preserves
     input order; only rows with a resolved L* get new shade_group/decision.
     """
@@ -110,12 +111,10 @@ def regroup_shades_by_l_star(rolls: list[dict]) -> list[dict]:
     for i, row in enumerate(keyed):
         q = min(3, int(4 * i / n))
         shade = ("A", "B", "C", "D")[q]
-        if shade in ("A", "B"):
+        if shade in ("A", "B", "D"):
             decision = "ACCEPT"
-        elif shade == "C":
-            decision = "HOLD"
         else:
-            decision = "REJECT"
+            decision = "HOLD"
         rn = row.get("roll_no")
         if rn is not None:
             assignments[str(rn)] = (shade, decision)

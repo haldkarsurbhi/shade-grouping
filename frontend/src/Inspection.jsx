@@ -581,132 +581,138 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
     return (
         <div className="operator-screen">
             <section className="control-bar-dense">
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div className="input-group-dense">
-                        <label>Roll ID</label>
-                        <input type="text" value={rollInput} onChange={(e) => setRollInput(e.target.value)} />
-                    </div>
-                    <div className="input-group-dense">
-                        <label>Length (m)</label>
-                        <input
-                            type="number"
-                            value={qtyInput}
-                            onChange={(e) => setQtyInput(e.target.value)}
-                            style={{ width: '80px' }}
-                        />
-                    </div>
-                    <div className="input-group-dense">
-                        <label>Buyer</label>
-                        <input type="text" value={buyerInput} onChange={(e) => setBuyerInput(e.target.value)} />
-                    </div>
-                    <div className="input-group-dense">
-                        <label>Supplier</label>
-                        <input
-                            type="text"
-                            value={supplierInput}
-                            onChange={(e) => setSupplierInput(e.target.value)}
-                            placeholder="e.g. Arvind Mills"
-                        />
-                    </div>
-                    <div className="input-group-dense">
-                        <label>Camera</label>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
-                            <button
-                                type="button"
-                                className="btn btn-secondary btn-compact"
-                                disabled={camSwitchBusy}
-                                onClick={() => postCameraPreference('usb_first')}
-                                title="Try indices 1,2,3 before 0 — use external Sony/USB"
-                            >
-                                USB / Sony first
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-secondary btn-compact"
-                                disabled={camSwitchBusy}
-                                onClick={() => postCameraPreference('laptop_first')}
-                            >
-                                Laptop first
-                            </button>
-                            <label style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginLeft: '4px' }}>
-                                Index
-                            </label>
-                            <select
-                                disabled={camSwitchBusy}
-                                defaultValue=""
-                                onChange={(e) => {
-                                    const v = e.target.value;
-                                    if (v === '') return;
-                                    postCameraIndex(parseInt(v, 10));
-                                    e.target.value = '';
-                                }}
-                                style={{
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    border: '1px solid var(--color-border)',
-                                    fontSize: '0.85rem',
-                                    background: 'var(--color-bg-dark)',
-                                    color: 'inherit',
-                                }}
-                            >
-                                <option value="">—</option>
-                                {[0, 1, 2, 3, 4, 5].map((i) => (
-                                    <option key={i} value={i}>
-                                        {i}
-                                    </option>
-                                ))}
-                            </select>
+                <div className="control-bar-top">
+                    <div className="control-bar-left">
+                        <div className="inspection-field-grid">
+                            <div className="input-group-dense">
+                                <label htmlFor="insp-roll-id">Roll ID</label>
+                                <input
+                                    id="insp-roll-id"
+                                    type="text"
+                                    value={rollInput}
+                                    onChange={(e) => setRollInput(e.target.value)}
+                                />
+                            </div>
+                            <div className="input-group-dense">
+                                <label htmlFor="insp-length">Length (m)</label>
+                                <input
+                                    id="insp-length"
+                                    type="number"
+                                    className="inspection-input-qty"
+                                    value={qtyInput}
+                                    onChange={(e) => setQtyInput(e.target.value)}
+                                />
+                            </div>
+                            <div className="input-group-dense">
+                                <label htmlFor="insp-buyer">Buyer</label>
+                                <input
+                                    id="insp-buyer"
+                                    type="text"
+                                    value={buyerInput}
+                                    onChange={(e) => setBuyerInput(e.target.value)}
+                                />
+                            </div>
+                            <div className="input-group-dense">
+                                <label htmlFor="insp-supplier">Supplier</label>
+                                <input
+                                    id="insp-supplier"
+                                    type="text"
+                                    value={supplierInput}
+                                    onChange={(e) => setSupplierInput(e.target.value)}
+                                    placeholder="e.g. Arvind Mills"
+                                />
+                            </div>
+                        </div>
+                        <div className="inspection-camera-row">
+                            <span className="inspection-camera-label">Camera</span>
+                            <div className="camera-actions-inner">
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-compact"
+                                    disabled={camSwitchBusy}
+                                    onClick={() => postCameraPreference('usb_first')}
+                                    title="Try indices 1,2,3 before 0 — use external Sony/USB"
+                                >
+                                    USB / Sony first
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary btn-compact"
+                                    disabled={camSwitchBusy}
+                                    onClick={() => postCameraPreference('laptop_first')}
+                                >
+                                    Laptop first
+                                </button>
+                                <label
+                                    htmlFor="insp-cam-index"
+                                    className="input-group-dense--inline"
+                                    style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', gap: '6px' }}
+                                >
+                                    Index
+                                    <select
+                                        id="insp-cam-index"
+                                        disabled={camSwitchBusy}
+                                        defaultValue=""
+                                        onChange={(e) => {
+                                            const v = e.target.value;
+                                            if (v === '') return;
+                                            postCameraIndex(parseInt(v, 10));
+                                            e.target.value = '';
+                                        }}
+                                        className="camera-index-select"
+                                    >
+                                        <option value="">—</option>
+                                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                                            <option key={i} value={i}>
+                                                {i}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div className="actions-dense">
-                    <button className="btn btn-primary btn-compact" onClick={handleCapture} disabled={loading}>
-                        <Camera size={16} /> {loading ? 'Analyzing…' : 'Capture Scan'}
-                    </button>
-                    <button type="button" className="btn btn-secondary btn-compact" onClick={reloadStream}>
-                        Reload stream
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-secondary btn-compact"
-                        onClick={handleNewLot}
-                        disabled={newLotBusy}
-                        title="Clear session and reset reference — next scan is ΔE 0, others compare to it"
-                    >
-                        <RefreshCw size={16} /> {newLotBusy ? 'Resetting…' : 'New lot'}
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-secondary btn-compact"
-                        onClick={handleRegroupByL}
-                        disabled={regroupBusy || sessionTests.length === 0}
-                        title="Reassign A–D by L* quartiles within this session (light→dark)"
-                    >
-                        <Layers size={16} /> {regroupBusy ? 'Regrouping…' : 'Regroup by L*'}
-                    </button>
-                    <button type="button" className="btn btn-secondary btn-compact" onClick={handleManualSave}>
-                        <Save size={16} /> Manual Save
-                    </button>
-                    <button
-                        type="button"
-                        className="btn btn-secondary btn-compact"
-                        onClick={handlePrintLotReport}
-                        disabled={sessionTests.length === 0}
-                        title="Open a printable report for the current session (image, shade, ΔE, buyer, supplier, roll, length)"
-                    >
-                        <Printer size={16} /> Print lot report
-                    </button>
+                    <div className="actions-dense">
+                        <button className="btn btn-primary btn-compact" onClick={handleCapture} disabled={loading}>
+                            <Camera size={16} /> {loading ? 'Analyzing…' : 'Capture Scan'}
+                        </button>
+                        <button type="button" className="btn btn-secondary btn-compact" onClick={reloadStream}>
+                            Reload stream
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-compact"
+                            onClick={handleNewLot}
+                            disabled={newLotBusy}
+                            title="Clear session and reset reference — next scan is ΔE 0, others compare to it"
+                        >
+                            <RefreshCw size={16} /> {newLotBusy ? 'Resetting…' : 'New lot'}
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-compact"
+                            onClick={handleRegroupByL}
+                            disabled={regroupBusy || sessionTests.length === 0}
+                            title="Reassign A–D by L* quartiles within this session (light→dark)"
+                        >
+                            <Layers size={16} /> {regroupBusy ? 'Regrouping…' : 'Regroup by L*'}
+                        </button>
+                        <button type="button" className="btn btn-secondary btn-compact" onClick={handleManualSave}>
+                            <Save size={16} /> Manual Save
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-compact"
+                            onClick={handlePrintLotReport}
+                            disabled={sessionTests.length === 0}
+                            title="Open a printable report for the current session (image, shade, ΔE, buyer, supplier, roll, length)"
+                        >
+                            <Printer size={16} /> Print lot report
+                        </button>
+                    </div>
                 </div>
-                <p
-                    style={{
-                        margin: '0.5rem 0 0',
-                        fontSize: '0.78rem',
-                        color: 'var(--color-text-muted)',
-                        maxWidth: '52rem',
-                        lineHeight: 1.45,
-                    }}
-                >
+                <p className="control-bar-hint">
                     <strong>ΔE</strong> is measured vs the <strong>first capture in this lot</strong> (that row shows{' '}
                     <strong>0</strong> as the reference). Later rolls get A–D / REJECT from your ΔE rules. Use{' '}
                     <strong>New lot</strong> before another batch; restart the server also clears the reference.

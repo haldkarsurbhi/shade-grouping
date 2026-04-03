@@ -718,17 +718,38 @@ body {
   box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
 }
 
-/* Outer card is the square: header + preview + footer share one square box */
-.live-feed-container--square {
-  width: 100%;
+/*
+ * True square outer box (header + preview + footer): flex + aspect-ratio alone can grow
+ * past 1:1 in some layouts; padding-top hack fixes width==height from column width.
+ */
+.live-feed-aspect {
+  width: min(100%, 500px);
   max-width: 500px;
   margin-inline: auto;
   align-self: start;
-  aspect-ratio: 1 / 1;
+  justify-self: center;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.live-feed-aspect::before {
+  content: '';
+  display: block;
+  padding-top: 100%;
+}
+
+.live-feed-aspect-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: #0b1220;
   border-radius: 12px;
   border: 1px solid #475569;
   box-shadow: 0 2px 8px rgb(15 23 42 / 0.12);
+  box-sizing: border-box;
 }
 
 .live-feed-body {

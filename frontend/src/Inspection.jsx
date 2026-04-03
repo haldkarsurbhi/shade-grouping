@@ -717,46 +717,48 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             </section>
 
             <section className="main-workspace">
-                <div className="live-feed-container live-feed-container--square">
-                    <div className="feed-header">
-                        <span className="live-indicator">● LIVE</span>
-                        <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
-                    </div>
-                    <div className="live-feed-body live-feed-body--square">
-                        {currentRoll.imageUrl ? (
-                            <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
-                        ) : pollPreviewUrl ? (
-                            <img
-                                key={streamKey}
-                                ref={mjpegRef}
-                                src={pollPreviewUrl}
-                                className="feed-media feed-video"
-                                alt="Live USB camera"
-                            />
-                        ) : (
-                            <div className="feed-placeholder">Loading camera preview…</div>
-                        )}
-                        <div className="reticle-box reticle-overlay">
-                            <div className="corner c-tl"></div>
-                            <div className="corner c-tr"></div>
-                            <div className="corner c-bl"></div>
-                            <div className="corner c-br"></div>
-                            <div className="center-cross"></div>
+                <div className="live-feed-aspect">
+                    <div className="live-feed-aspect-inner">
+                        <div className="feed-header">
+                            <span className="live-indicator">● LIVE</span>
+                            <span className="feed-meta">{cameraHint || 'Checking camera…'}</span>
                         </div>
-                    </div>
+                        <div className="live-feed-body live-feed-body--square">
+                            {currentRoll.imageUrl ? (
+                                <img src={currentRoll.imageUrl} className="feed-media feed-image" alt="Last capture" />
+                            ) : pollPreviewUrl ? (
+                                <img
+                                    key={streamKey}
+                                    ref={mjpegRef}
+                                    src={pollPreviewUrl}
+                                    className="feed-media feed-video"
+                                    alt="Live USB camera"
+                                />
+                            ) : (
+                                <div className="feed-placeholder">Loading camera preview…</div>
+                            )}
+                            <div className="reticle-box reticle-overlay">
+                                <div className="corner c-tl"></div>
+                                <div className="corner c-tr"></div>
+                                <div className="corner c-bl"></div>
+                                <div className="corner c-br"></div>
+                                <div className="center-cross"></div>
+                            </div>
+                        </div>
 
-                    <div className="feed-footer">
-                        <span>
-                            <strong>Preview:</strong> /camera-snapshot (~6/s)
-                        </span>
-                        <span>
-                            <strong>API:</strong> {liveStreamBase}
-                        </span>
-                        {currentRoll.imageUrl && (
-                            <button type="button" className="btn-link-live" onClick={resumeLiveCamera}>
-                                Show live preview
-                            </button>
-                        )}
+                        <div className="feed-footer">
+                            <span>
+                                <strong>Preview:</strong> /camera-snapshot (~6/s)
+                            </span>
+                            <span>
+                                <strong>API:</strong> {liveStreamBase}
+                            </span>
+                            {currentRoll.imageUrl && (
+                                <button type="button" className="btn-link-live" onClick={resumeLiveCamera}>
+                                    Show live preview
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
 

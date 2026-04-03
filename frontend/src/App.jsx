@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import './styles.css';
 import Papa from 'papaparse';
 import Sidebar from './Sidebar';
@@ -175,26 +175,8 @@ const App = () => {
             <span className="crumb-module">SHADE QC</span>
             <ChevronRight size={14} className="crumb-sep" />
             <span className="crumb-page">
-              {page === 'dashboard' ? 'OVERVIEW' : 'LIVE INSPECTION'}
+              {page === 'dashboard' ? 'OVERVIEW' : page === 'inspection' ? 'LIVE INSPECTION' : 'LOGS'}
             </span>
-          </div>
-
-          <div className="header-actions">
-            <div className="search-box">
-              <Search size={14} className="search-icon" />
-              <input type="text" placeholder="Scan Roll ID..." />
-            </div>
-            <div className="icon-btn">
-              <Bell size={18} />
-              <span className="badge-dot"></span>
-            </div>
-            <div className="user-profile">
-              <div className="avatar">OP</div>
-              <div className="user-info">
-                <span className="name">Operator</span>
-                <span className="role">Level 2</span>
-              </div>
-            </div>
           </div>
         </header>
 

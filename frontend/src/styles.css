@@ -690,6 +690,12 @@ body {
   color: var(--text-primary);
 }
 
+.btn-danger {
+  background: #dc2626;
+  color: #fff;
+  border: 1px solid #b91c1c;
+}
+
 .main-workspace {
   flex: 1;
   display: grid;
@@ -956,6 +962,12 @@ body {
   border-bottom-color: rgba(254, 202, 202, 0.8);
 }
 
+.s-e-text {
+  background: rgba(30, 41, 59, 0.9);
+  color: #f8fafc;
+  border-bottom-color: rgba(15, 23, 42, 0.8);
+}
+
 .preview-grid {
   padding: 12px 14px;
   display: flex;
@@ -1139,6 +1151,11 @@ body {
   color: #991b1b;
 }
 
+.shade-e {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
 .verdict-badge {
   font-weight: 700;
   font-size: 0.75rem;
@@ -1239,4 +1256,42 @@ body {
   color: var(--text-secondary);
   font-size: 0.85rem;
   font-weight: 500;
+}
+
+/* Config page */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.config-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.9rem;
+  background: #fff;
+}
+
+.config-block h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.config-block-full {
+  grid-column: 1 / -1;
+}
+
+.config-note-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+@media (max-width: 900px) {
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
 }

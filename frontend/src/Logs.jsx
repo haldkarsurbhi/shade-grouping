@@ -1,8 +1,26 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Search, Calendar, Filter, Image as ImageIcon } from 'lucide-react';
 import './styles.css';
+import { normalizeInspectionRecord } from './utils/shadeRules';
 
-const Logs = ({ history }) => {
+const PLACEHOLDER_LOT_IDS = new Set(['', 'CAPTURE', 'ORD-DEMO', '-']);
+
+function normalizeLotPart(value, fallback) {
+    const s = String(value || '').trim().toUpperCase();
+    if (!s) return fallback;
+    return s.replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || fallback;
+}
+
+function deriveLotId(row) {
+    const raw = String(row?.orderId ?? row?.lotId ?? '').trim();
+    if (raw && !PLACEHOLDER_LOT_IDS.has(raw.toUpperCase())) return raw;
+    const datePart = normalizeLotPart(row?.date, 'NO-DATE');
+    const buyerPart = normalizeLotPart(row?.buyer, 'NO-BUYER');
+    const supplierPart = normalizeLotPart(row?.supplier, 'NO-SUPPLIER');
+    return `LOT-${datePart}-${buyerPart}-${supplierPart}`;
+}
+
+const Logs = ({ history, onDeleteLot, onRestoreLots, deletedLotCount = 0 }) => {
     // 1. Filter State
     const [filters, setFilters] = useState({
         search: '', // Buyer or Roll search
@@ -12,6 +30,26 @@ const Logs = ({ history }) => {
 
     const [expandedDates, setExpandedDates] = useState({});
     const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedLotForDelete, setSelectedLotForDelete] = useState('');
+
+    const lotOptions = useMemo(() => {
+        const counts = new Map();
+        history.forEach((row) => {
+            const lotId = deriveLotId(row);
+            counts.set(lotId, (counts.get(lotId) || 0) + 1);
+        });
+        return Array.from(counts.entries())
+            .map(([lotId, count]) => ({ lotId, count }))
+            .sort((a, b) => a.lotId.localeCompare(b.lotId));
+    }, [history]);
+
+    const handleDeleteSelectedLot = () => {
+        if (!selectedLotForDelete) return;
+        const confirmed = window.confirm(`Delete lot "${selectedLotForDelete}" from logs and dashboard?`);
+        if (!confirmed) return;
+        onDeleteLot?.(selectedLotForDelete);
+        setSelectedLotForDelete('');
+    };
 
     // 2. Filter & Group Data
     const groupedData = useMemo(() => {
@@ -43,14 +81,15 @@ const Logs = ({ history }) => {
                     stats: { total: 0, accept: 0, hold: 0, reject: 0, sumDeltaE: 0 }
                 };
             }
-            groups[date].records.push(item);
+            const normalized = normalizeInspectionRecord(item);
+            groups[date].records.push(normalized);
 
             // Stats
             groups[date].stats.total++;
-            groups[date].stats.sumDeltaE += Number(item.deltaE || 0);
-            if (item.decision === 'ACCEPT') groups[date].stats.accept++;
-            if (item.decision === 'HOLD') groups[date].stats.hold++;
-            if (item.decision === 'REJECT') groups[date].stats.reject++;
+            groups[date].stats.sumDeltaE += Number(normalized.deltaE || 0);
+            if (normalized.decision === 'ACCEPT') groups[date].stats.accept++;
+            if (normalized.decision === 'HOLD') groups[date].stats.hold++;
+            if (normalized.decision === 'REJECT') groups[date].stats.reject++;
         });
 
         // Sort Dates Descending (Newest First)
@@ -87,6 +126,11 @@ const Logs = ({ history }) => {
 
     return (
         <div className="content-area">
+            <p className="text-muted" style={{ marginBottom: '0.25rem' }}>
+                <span title="Delta E is the color difference from lot reference.">ΔE: lower means closer shade</span>
+                {' · '}
+                <span title="D means hold for review, E means reject.">Decision policy: A-C Accept, D Hold, E Reject</span>
+            </p>
             {/* Header / Filters */}
             <div className="widget-card" style={{ marginBottom: '1.5rem' }}>
                 <div className="widget-header">
@@ -126,6 +170,28 @@ const Logs = ({ history }) => {
                         Reset
                     </button>
                 </div>
+                <div className="widget-body filter-bar" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', paddingTop: 0 }}>
+                    <select
+                        value={selectedLotForDelete}
+                        onChange={(e) => setSelectedLotForDelete(e.target.value)}
+                        style={{ minWidth: '280px' }}
+                    >
+                        <option value="">Select lot to delete...</option>
+                        {lotOptions.map((lot) => (
+                            <option key={lot.lotId} value={lot.lotId}>
+                                {lot.lotId} ({lot.count} rolls)
+                            </option>
+                        ))}
+                    </select>
+                    <button className="btn-danger" disabled={!selectedLotForDelete} onClick={handleDeleteSelectedLot}>
+                        Delete Lot
+                    </button>
+                    {deletedLotCount > 0 && (
+                        <button className="btn-secondary" onClick={onRestoreLots}>
+                            Restore Deleted Lots ({deletedLotCount})
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Date Groups */}
@@ -163,6 +229,7 @@ const Logs = ({ history }) => {
                                             <thead>
                                                 <tr>
                                                     <th>Roll ID</th>
+                                                    <th>Lot ID</th>
                                                     <th>Buyer Name</th>
                                                     <th>Supplier</th>
                                                     <th>Qty (m)</th>
@@ -175,12 +242,13 @@ const Logs = ({ history }) => {
                                                 {group.records.map((row, idx) => (
                                                     <tr key={idx}>
                                                         <td className="font-mono"><strong>{row.rollNo}</strong></td>
+                                                        <td className="font-mono">{deriveLotId(row)}</td>
                                                         <td>{row.buyer}</td>
                                                         <td>{row.supplier}</td>
                                                         <td>{row.quantity}</td>
                                                         <td><strong>{row.deltaE}</strong></td>
                                                         <td>
-                                                            <span className={`shade-tag ${row.shade === 'REJECT' ? 's-reject' : row.shade === 'A' ? 's-a' : 's-other'}`}>
+                                                            <span className={`shade-tag ${row.shade === 'E' ? 's-reject' : row.shade === 'A' ? 's-a' : 's-other'}`}>
                                                                 {row.shade}
                                                             </span>
                                                         </td>
@@ -198,8 +266,8 @@ const Logs = ({ history }) => {
                                             <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#475569' }}>Sample Traceability (Grouped by Shade)</h4>
                                         </div>
 
-                                        {['A', 'B', 'C', 'D'].map(shade => {
-                                            const shadeImages = group.records.filter(r => (r.shade || 'D') === shade && r.image);
+                                        {['A', 'B', 'C', 'D', 'E'].map(shade => {
+                                            const shadeImages = group.records.filter(r => (r.shade || 'E') === shade && r.image);
                                             if (shadeImages.length === 0) return null;
 
                                             return (

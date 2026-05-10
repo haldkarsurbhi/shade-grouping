@@ -20,7 +20,7 @@ from fastapi.staticfiles import StaticFiles
 
 import camera as cam_module
 from color_engine import preprocess_roi, extract_lab_stats, delta_e_2000
-from grouping import assign_shade_group, regroup_shades_by_l_star
+from grouping import assign_shade_group
 from data_store import append_inspection_record, list_inspection_records, save_results
 
 # ---------------------------------------------------------------------------
@@ -98,6 +98,35 @@ def _safe_roll_stem(roll_no: str) -> str:
 _camera_lock = threading.Lock()
 _stream_cap = None
 _stream_index = None
+_last_camera_error: str = ""
+
+
+def _set_camera_error(msg: str) -> None:
+    global _last_camera_error
+    _last_camera_error = str(msg or "").strip()
+
+
+def _camera_status_payload() -> dict:
+    with _camera_lock:
+        cap = _stream_cap
+        idx = _stream_index
+    connected = bool(cap is not None and cap.isOpened())
+    if connected:
+        _set_camera_error("")
+    else:
+        # Keep whichever source has the most recent useful camera error.
+        cam_err = cam_module.get_last_error().strip()
+        if cam_err:
+            _set_camera_error(cam_err)
+    return {
+        "connected": connected,
+        "active_index": idx if connected else None,
+        "last_error": _last_camera_error or "",
+        # Backward compatibility for existing frontend fields:
+        "ok": connected,
+        "index": idx if connected else None,
+        "try_order": cam_module.camera_index_order(),
+    }
 
 
 def _ensure_stream_camera():
@@ -113,6 +142,10 @@ def _ensure_stream_camera():
         _stream_index = None
     cap, idx = cam_module.open_preferred_capture()
     _stream_cap, _stream_index = cap, idx
+    if cap is None:
+        _set_camera_error(cam_module.get_last_error())
+    else:
+        _set_camera_error("")
     return _stream_cap
 
 
@@ -178,16 +211,8 @@ def health_check():
 @app.get("/camera-status")
 @app.get("/camera_status")
 def camera_status():
-    """Fast JSON only — do not open the camera here (opening is slow and shares a lock with MJPEG)."""
-    with _camera_lock:
-        cap = _stream_cap
-        idx = _stream_index
-    ok = cap is not None and cap.isOpened()
-    return {
-        "ok": bool(ok),
-        "index": idx,
-        "try_order": cam_module.camera_index_order(),
-    }
+    """Fast JSON only — does not open camera (prevents lock contention)."""
+    return _camera_status_payload()
 
 
 @app.post("/camera-preference")
@@ -213,9 +238,9 @@ async def camera_preference(mode: str = Form(...)):
             _stream_cap = None
             _stream_index = None
     if mode == "laptop_first":
-        cam_module.set_try_order([0, 1, 2, 3])
+        cam_module.set_try_order([0, 1, 2])
     elif mode == "usb_first":
-        cam_module.set_try_order([1, 2, 3, 0])
+        cam_module.set_try_order([1, 0, 2])
     else:
         cam_module.clear_try_order()
     return {"ok": True, "try_order": cam_module.camera_index_order()}
@@ -225,8 +250,8 @@ async def camera_preference(mode: str = Form(...)):
 async def camera_use_index(index: int = Form(...)):
     """Use only this device index (after releasing the current camera)."""
     global _stream_cap, _stream_index
-    if index < 0 or index > 15:
-        return JSONResponse(status_code=400, content={"error": "index must be 0–15"})
+    if index < 0 or index > 2:
+        return JSONResponse(status_code=400, content={"error": "index must be 0–2"})
     with _camera_lock:
         if _stream_cap is not None:
             try:
@@ -236,7 +261,23 @@ async def camera_use_index(index: int = Form(...)):
             _stream_cap = None
             _stream_index = None
     cam_module.set_try_order([index])
+    _set_camera_error("")
     return {"ok": True, "try_order": [index]}
+
+
+@app.post("/camera-reload")
+async def camera_reload():
+    """Release current camera so next snapshot request reinitializes the stream."""
+    global _stream_cap, _stream_index
+    with _camera_lock:
+        if _stream_cap is not None:
+            try:
+                _stream_cap.release()
+            except Exception:
+                pass
+        _stream_cap = None
+        _stream_index = None
+    return {"ok": True, "message": "Camera stream reset requested"}
 
 
 @app.get("/camera-snapshot")
@@ -246,7 +287,8 @@ def camera_snapshot():
     with _camera_lock:
         cap = _ensure_stream_camera()
         if cap is None or not cap.isOpened():
-            return JSONResponse(status_code=503, content={"error": "No camera"})
+            msg = cam_module.get_last_error() or "USB camera not detected. Check cable and click Reload Camera."
+            return JSONResponse(status_code=503, content={"error": msg})
         fallback = None
         for _ in range(24):
             good, frame = cap.read()
@@ -277,7 +319,8 @@ def camera_snapshot():
                         "Access-Control-Allow-Origin": "*",
                     },
                 )
-    return JSONResponse(status_code=503, content={"error": "No frame from camera"})
+    msg = cam_module.get_last_error() or "USB camera connected but no valid frame. Click Reload Camera."
+    return JSONResponse(status_code=503, content={"error": msg})
 
 
 @app.get("/camera-stream")
@@ -445,22 +488,6 @@ async def analyze_roll(
             status_code=500,
             content={"error": "Image processing failed"},
         )
-
-
-@app.post("/regroup-lightness")
-async def regroup_lightness(body: dict):
-    """
-    JSON body: { "rolls": [ { "roll_no": "...", "L_star": 82.1 }, ... ] }
-    Also accepts L* or lab: [L,a,b]. Returns same rolls with updated shade_group/decision.
-    """
-    rolls = body.get("rolls") if isinstance(body, dict) else None
-    if not isinstance(rolls, list):
-        return JSONResponse(
-            status_code=400,
-            content={"error": "Body must include a list field 'rolls'"},
-        )
-    updated = regroup_shades_by_l_star(rolls)
-    return {"rolls": updated}
 
 
 # React production build (npm run build in frontend/) — mounted last so API routes win.

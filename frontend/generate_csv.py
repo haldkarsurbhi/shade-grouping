@@ -1,53 +1,68 @@
+import csv
 import datetime
+import random
 
-# Existing data (from file read)
-existing_csv = """Date,Roll ID,Buyer,Supplier,Quantity (m),DeltaE,Shade Group,Verdict,Image
-2026-01-05,R101,Zara,Arvind Mills,120,1.2,A,ACCEPT,
-2026-01-05,R102,Zara,Vardhman,95,3.6,B,ACCEPT,
-2026-01-06,R103,H&M,Arvind Mills,80,6.4,REJECT,REJECT,
-2026-01-06,R104,H&M,Local Supplier,60,11.2,REJECT,REJECT,
-2026-01-07,R105,Gap,FabIndia,110,0.8,A,ACCEPT,
-2026-01-07,R106,Gap,Vardhman,100,2.1,C,HOLD,
-2026-01-08,R107,Zara,Arvind Mills,130,0.5,A,ACCEPT,
-2026-01-08,R108,H&M,Local Supplier,90,4.2,B,ACCEPT,"""
+BUYERS = ["H&M", "PRL (Polo Ralph Lauren)", "Dressmann", "Lacoste"]
+SUPPLIERS = ["Arvind Mills", "Vardhman Textiles", "Loyal Textile Mills"]
 
-today = datetime.date.today().isoformat()
-start_roll = 109
 
-new_rows = []
+def classify_delta(delta_e):
+    if delta_e <= 1.0:
+        return "Group A", "Accept"
+    if delta_e <= 2.5:
+        return "Group B", "Accept"
+    if delta_e <= 4.0:
+        return "Group C", "Accept"
+    if delta_e <= 5.5:
+        return "Group D", "Hold"
+    return "Reject", "Reject"
 
-def add_batch(color_name, counts):
-    global start_roll
-    for group, count in counts.items():
-        for _ in range(count):
-            roll_id = f"R{start_roll}"
-            start_roll += 1
-            
-            # Smart Autofill Logic
-            delta_e = 0.5 # Default A
-            if group == 'B': delta_e = 1.6
-            if group == 'C': delta_e = 2.5
-            if group == 'D': delta_e = 4.2
-            
-            verdict = "ACCEPT"
-            if group == 'C':
-                verdict = "HOLD"
-            if group == 'REJECT':
-                verdict = "REJECT"
-            
-            # Format: Date,Roll ID,Buyer,Supplier,Quantity (m),DeltaE,Shade Group,Verdict,Image
-            row = f"{today},{roll_id},Next,Mills,60,{delta_e},{group},{verdict},"
-            new_rows.append(row)
 
-# 1. Orange Shade
-add_batch("Orange", {'A': 14, 'B': 1, 'C': 0, 'D': 1})
+def build_rows():
+    random.seed(26)
+    lots = [
+        ("HM-NV", BUYERS[0], SUPPLIERS[0], 22.0, 1.2, -6.2, 12),
+        ("PRL-WH", BUYERS[1], SUPPLIERS[1], 91.8, 0.2, 1.9, 12),
+        ("DR-BK", BUYERS[2], SUPPLIERS[2], 13.8, 1.1, 0.2, 12),
+        ("LA-GR", BUYERS[3], SUPPLIERS[0], 36.8, -6.9, 7.7, 12),
+        ("HM-GY", BUYERS[0], SUPPLIERS[2], 57.8, 0.9, 0.7, 12),
+        ("PRL-BG", BUYERS[1], SUPPLIERS[0], 69.7, 5.6, 15.1, 12),
+        ("DR-CH", BUYERS[2], SUPPLIERS[1], 27.4, 1.3, -0.2, 12),
+    ]
 
-# 2. Light Blue Shade
-add_batch("Light Blue", {'A': 16, 'B': 0, 'C': 0, 'D': 0})
+    start_date = datetime.date(2026, 3, 1)
+    rows = []
+    for lot_idx, (prefix, buyer, supplier, base_l, base_a, base_b, count) in enumerate(lots):
+        lot_date = start_date + datetime.timedelta(days=lot_idx)
+        for roll in range(1, count + 1):
+            if prefix in ("HM-NV", "DR-BK", "DR-CH"):
+                delta = round(random.uniform(0.4, 6.2), 2)  # darker lots vary more
+            else:
+                delta = round(random.uniform(0.2, 4.6), 2)
+            shade, verdict = classify_delta(delta)
+            rows.append([
+                lot_date.isoformat(),
+                f"{prefix}-{roll:03d}",
+                buyer,
+                supplier,
+                random.randint(104, 134),
+                round(base_l + random.uniform(-1.5, 1.5), 1),
+                round(base_a + random.uniform(-0.8, 0.8), 1),
+                round(base_b + random.uniform(-0.8, 0.8), 1),
+                delta,
+                shade,
+                verdict,
+                "",
+            ])
+    return rows
 
-# 3. Blue Shade
-add_batch("Blue", {'A': 1, 'B': 0, 'C': 0, 'D': 4})
 
-# Combine
-final_csv = existing_csv + "\n" + "\n".join(new_rows)
-print(final_csv)
+def main():
+    writer = csv.writer(open("inspection_data_generated.csv", "w", newline="", encoding="utf-8"))
+    writer.writerow(["Date", "Roll ID", "Buyer", "Supplier", "Quantity (m)", "L*", "a*", "b*", "DeltaE", "Shade Group", "Verdict", "Image"])
+    writer.writerows(build_rows())
+    print("Generated inspection_data_generated.csv")
+
+
+if __name__ == "__main__":
+    main()

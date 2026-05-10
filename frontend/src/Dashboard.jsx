@@ -3,19 +3,21 @@ import {
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import './styles.css';
+import { normalizeInspectionRecord } from './utils/shadeRules';
 
 const Dashboard = ({ history }) => {
     const [selectedImage, setSelectedImage] = useState(null);
 
     // Compute Metrics from Prop
     const stats = useMemo(() => {
-        const total = history.length;
-        const accepted = history.filter(i => i.decision === 'ACCEPT').length;
-        const hold = history.filter(i => i.decision === 'HOLD').length;
-        const rejected = history.filter(i => i.decision === 'REJECT').length;
+        const normalized = history.map((i) => normalizeInspectionRecord(i));
+        const total = normalized.length;
+        const accepted = normalized.filter(i => i.decision === 'ACCEPT').length;
+        const hold = normalized.filter(i => i.decision === 'HOLD').length;
+        const rejected = normalized.filter(i => i.decision === 'REJECT').length;
 
         // Safety check for calculation
-        const sumDeltaE = history.reduce((acc, curr) => acc + Number(curr.deltaE || 0), 0);
+        const sumDeltaE = normalized.reduce((acc, curr) => acc + Number(curr.deltaE || 0), 0);
         const avgDeltaE = total > 0 ? (sumDeltaE / total).toFixed(2) : '0.00';
 
         return { total, accepted, hold, rejected, avgDeltaE };
@@ -23,12 +25,13 @@ const Dashboard = ({ history }) => {
 
     // Compute Chart: Distribution
     const distributionData = useMemo(() => {
-        const counts = { A: 0, B: 0, C: 0, D: 0, E: 0, REJECT: 0 };
+        const counts = { A: 0, B: 0, C: 0, D: 0, E: 0 };
         history.forEach(i => {
+            const row = normalizeInspectionRecord(i);
             // Normalize shade key
-            const shadeKey = i.shade || 'REJECT';
+            const shadeKey = row.shade || 'E';
             if (counts[shadeKey] !== undefined) counts[shadeKey]++;
-            else counts.REJECT++;
+            else counts.E++;
         });
 
         return [
@@ -36,7 +39,7 @@ const Dashboard = ({ history }) => {
             { name: 'B', count: counts.B, fill: '#ea580c' }, // Orange-600
             { name: 'C', count: counts.C, fill: '#ca8a04' }, // Yellow-600
             { name: 'D', count: counts.D, fill: '#dc2626' }, // Red-600
-            { name: 'REJECT', count: counts.REJECT, fill: '#1e293b' }, // Slate-800
+            { name: 'E', count: counts.E, fill: '#1e293b' }, // Slate-800
         ];
     }, [history]);
 
@@ -48,7 +51,7 @@ const Dashboard = ({ history }) => {
         return chronological.map((item, index) => ({
             idx: index + 1, // Simple index for X-axis
             deltaE: item.deltaE,
-            shade: item.shade
+            shade: normalizeInspectionRecord(item).shade
         }));
     }, [history]);
 
@@ -67,7 +70,7 @@ const Dashboard = ({ history }) => {
                     hold: 0,
                     rejected: 0,
                     sumDeltaE: 0,
-                    shades: { A: 0, B: 0, C: 0, D: 0, REJECT: 0 }
+                    shades: { A: 0, B: 0, C: 0, D: 0, E: 0 }
                 };
             }
 
@@ -75,16 +78,17 @@ const Dashboard = ({ history }) => {
             suppliers[supplier].sumDeltaE += Number(item.deltaE || 0);
 
             // Decision Counts
-            if (item.decision === 'ACCEPT') suppliers[supplier].accepted++;
-            else if (item.decision === 'HOLD') suppliers[supplier].hold++;
-            else if (item.decision === 'REJECT' || item.decision === 'Reject') suppliers[supplier].rejected++;
+            const normalized = normalizeInspectionRecord(item);
+            if (normalized.decision === 'ACCEPT') suppliers[supplier].accepted++;
+            else if (normalized.decision === 'HOLD') suppliers[supplier].hold++;
+            else if (normalized.decision === 'REJECT') suppliers[supplier].rejected++;
 
             // Shade Counts
-            const shade = item.shade || 'REJECT';
+            const shade = normalized.shade || 'E';
             if (suppliers[supplier].shades[shade] !== undefined) {
                 suppliers[supplier].shades[shade]++;
             } else {
-                suppliers[supplier].shades['REJECT']++;
+                suppliers[supplier].shades.E++;
             }
         });
 
@@ -95,7 +99,7 @@ const Dashboard = ({ history }) => {
             B: s.shades.B,
             C: s.shades.C,
             D: s.shades.D,
-            REJECT: s.shades.REJECT
+            E: s.shades.E
         }));
 
         // Format for Table
@@ -148,10 +152,15 @@ const Dashboard = ({ history }) => {
                     <span className="stat-number text-danger">{stats.rejected}</span>
                 </div>
                 <div className="widget-card stat-widget">
-                    <span className="stat-title">Avg ΔE</span>
+                    <span className="stat-title" title="Average color distance from lot reference">Avg ΔE</span>
                     <span className="stat-number">{stats.avgDeltaE}</span>
                 </div>
             </section>
+            <p className="text-muted" style={{ marginTop: '-0.5rem' }}>
+                <span title="Lower deltaE indicates a closer color match.">ΔE: lower is better</span>
+                {' · '}
+                <span title="Shade A-C are acceptable, D is hold for QC, E is reject.">Shade policy: A-C Accept, D Hold, E Reject</span>
+            </p>
 
             {/* SECTION 2: Analytics */}
             <section className="dashboard-split">
@@ -220,7 +229,7 @@ const Dashboard = ({ history }) => {
                                 <Bar dataKey="B" stackId="a" fill="#ea580c" name="Shade B" />
                                 <Bar dataKey="C" stackId="a" fill="#ca8a04" name="Shade C" />
                                 <Bar dataKey="D" stackId="a" fill="#dc2626" name="Shade D" />
-                                <Bar dataKey="REJECT" stackId="a" fill="#1e293b" name="Reject" />
+                                <Bar dataKey="E" stackId="a" fill="#1e293b" name="Shade E / Reject" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -288,7 +297,9 @@ const Dashboard = ({ history }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {history.map((row, idx) => (
+                            {history.map((row, idx) => {
+                                const normalized = normalizeInspectionRecord(row);
+                                return (
                                 <tr key={idx} onClick={() => setSelectedImage(row.image)}>
                                     <td className="text-muted" style={{ fontSize: '0.8rem' }}>{row.date}</td>
                                     <td>
@@ -300,10 +311,11 @@ const Dashboard = ({ history }) => {
                                     <td>{row.orderId || '-'}</td>
                                     <td>{row.quantity}</td>
                                     <td><strong>{row.deltaE}</strong></td>
-                                    <td><span className={`shade-tag ${row.shade === 'REJECT' ? 's-reject' : row.shade === 'A' ? 's-a' : 's-other'}`}>{row.shade}</span></td>
-                                    <td><span className={getStatusClass(row.decision)}>{row.decision}</span></td>
+                                    <td><span className={`shade-tag ${normalized.shade === 'E' ? 's-reject' : normalized.shade === 'A' ? 's-a' : 's-other'}`}>{normalized.shade}</span></td>
+                                    <td><span className={getStatusClass(normalized.decision)}>{normalized.decision}</span></td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                 </div>

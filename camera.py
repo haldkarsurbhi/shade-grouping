@@ -1,11 +1,9 @@
 """
-OpenCV camera helpers. Prefers external/USB cameras (e.g. Sony) over the
-built-in laptop webcam by trying indices in configurable order.
+OpenCV camera helpers for jury-safe USB UVC operation.
 
 Environment:
-  SHADE_CAMERA_INDEX      If set (e.g. 1), only that index is used.
-  SHADE_CAMERA_TRY_INDICES Comma-separated order, default "1,2,3,0" so USB
-                           devices are tried before the typical laptop cam at 0.
+  SHADE_CAMERA_INDEX           If set (e.g. 1), only that index is used.
+  SHADE_CAMERA_ALLOWED_INDICES Comma-separated indices, default "0,1,2".
 """
 from __future__ import annotations
 
@@ -18,13 +16,30 @@ import cv2
 
 logger = logging.getLogger(__name__)
 
-# Runtime override from POST /camera-preference (USB-first vs laptop-first).
+# Runtime override from POST /camera-preference and POST /camera-use-index.
 _TRY_ORDER_OVERRIDE: Optional[List[int]] = None
+_LAST_ERROR: str = ""
+
+
+def _set_last_error(msg: str) -> None:
+    global _LAST_ERROR
+    _LAST_ERROR = str(msg or "").strip()
+    if _LAST_ERROR:
+        logger.warning("Camera error: %s", _LAST_ERROR)
+
+
+def clear_last_error() -> None:
+    global _LAST_ERROR
+    _LAST_ERROR = ""
+
+
+def get_last_error() -> str:
+    return _LAST_ERROR
 
 
 def set_try_order(indices: List[int]) -> None:
     global _TRY_ORDER_OVERRIDE
-    _TRY_ORDER_OVERRIDE = list(indices)
+    _TRY_ORDER_OVERRIDE = [int(i) for i in indices]
     logger.info("Camera try order override: %s", _TRY_ORDER_OVERRIDE)
 
 
@@ -35,11 +50,26 @@ def clear_try_order() -> None:
 
 
 def frame_has_signal(frame, min_mean: float = 1.25) -> bool:
-    """True if frame is not an empty/all-black buffer (common right after open on Windows)."""
+    """True if frame is not empty/black/corrupt single-channel style output."""
     if frame is None or getattr(frame, "size", 0) == 0:
         return False
+    if len(frame.shape) != 3 or frame.shape[2] != 3:
+        return False
+
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return float(gray.mean()) >= min_mean
+    if float(gray.mean()) < min_mean:
+        return False
+
+    # Reject common corrupted preview: almost pure green plane.
+    b_mean, g_mean, r_mean = [float(v) for v in frame.reshape(-1, 3).mean(axis=0)]
+    if g_mean > 35.0 and b_mean < 6.0 and r_mean < 6.0:
+        return False
+
+    # Reject effectively-flat frames.
+    if float(frame.std()) < 2.0:
+        return False
+
+    return True
 
 
 def _parse_indices(s: str) -> List[int]:
@@ -55,18 +85,35 @@ def _parse_indices(s: str) -> List[int]:
     return out
 
 
-def _backend_preference(index: int) -> Tuple[int, ...]:
+def _allowed_indices() -> List[int]:
+    forced = os.environ.get("SHADE_CAMERA_INDEX", "").strip()
+    if forced:
+        try:
+            return [int(forced)]
+        except ValueError:
+            _set_last_error(f"Invalid SHADE_CAMERA_INDEX: {forced!r}")
+            return [0]
+
+    raw = os.environ.get("SHADE_CAMERA_ALLOWED_INDICES", "0,1,2").strip()
+    parsed = _parse_indices(raw)
+    if not parsed:
+        parsed = [0, 1, 2]
+    # Keep only a small deterministic range for jury stability.
+    clean = [i for i in parsed if 0 <= i <= 2]
+    return clean if clean else [0, 1, 2]
+
+
+def _backend_preference() -> Tuple[int, ...]:
     if os.name != "nt":
         return (cv2.CAP_V4L2, cv2.CAP_ANY)
-    # External/USB (Sony, etc.) is usually index 1+ on Windows — DirectShow often works better than MSMF.
-    if index > 0:
-        return (cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY)
-    return (cv2.CAP_MSMF, cv2.CAP_DSHOW, cv2.CAP_ANY)
+    # UVC devices are usually more stable on DirectShow.
+    return (cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY)
 
 
 def try_open_camera(index: int) -> Optional[cv2.VideoCapture]:
     """Try to open `index` with each backend; warm up reads until a frame arrives."""
-    for api in _backend_preference(index):
+    clear_last_error()
+    for api in _backend_preference():
         cap: Optional[cv2.VideoCapture] = None
         try:
             cap = cv2.VideoCapture(index, api)
@@ -82,7 +129,13 @@ def try_open_camera(index: int) -> Optional[cv2.VideoCapture]:
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         except Exception:
             pass
-        # Prefer HD; fall back to VGA if the driver rejects sizes (avoids black/invalid buffers).
+        # Prefer UVC MJPG output to reduce corrupted color planes on Windows.
+        try:
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+        except Exception:
+            pass
+
+        # Prefer HD; fall back to VGA if the driver rejects sizes.
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         time.sleep(0.15)
@@ -92,14 +145,13 @@ def try_open_camera(index: int) -> Optional[cv2.VideoCapture]:
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             time.sleep(0.15)
 
-        for _ in range(20):
+        for _ in range(12):
             cap.read()
 
-        time.sleep(0.15)
-        for _ in range(40):
+        for _ in range(24):
             ok, frame = cap.read()
             if ok and frame is not None and getattr(frame, "size", 0) > 0:
-                if not frame_has_signal(frame, 1.25):
+                if not frame_has_signal(frame, 2.0):
                     time.sleep(0.04)
                     continue
                 logger.info(
@@ -114,32 +166,37 @@ def try_open_camera(index: int) -> Optional[cv2.VideoCapture]:
 
         cap.release()
 
+    _set_last_error(
+        f"USB camera not detected or unusable at index {index}. "
+        "Check cable/Device Manager, then click Reload Camera."
+    )
     return None
 
 
 def camera_index_order() -> List[int]:
-    forced = os.environ.get("SHADE_CAMERA_INDEX", "").strip()
-    if forced:
-        return [int(forced)]
+    allowed = _allowed_indices()
     if _TRY_ORDER_OVERRIDE is not None:
-        return list(_TRY_ORDER_OVERRIDE)
-    # Default: external USB (e.g. Sony) is usually 1+; laptop integrated is often 0.
-    raw = os.environ.get("SHADE_CAMERA_TRY_INDICES", "1,2,3,0").strip()
-    parsed = _parse_indices(raw)
-    return parsed if parsed else [1, 2, 3, 0]
+        return [i for i in _TRY_ORDER_OVERRIDE if i in allowed]
+    # Default for jury profile: try external USB first, then integrated.
+    if 1 in allowed and 0 in allowed:
+        ordered = [1, 0] + [i for i in allowed if i not in (1, 0)]
+        return ordered
+    return allowed
 
 
 def open_preferred_capture() -> Tuple[Optional[cv2.VideoCapture], Optional[int]]:
-    """
-    Open the first working device in the configured index order.
-    Default order tries 1,2,3 before 0 so a USB Sony (or other external UVC)
-    is chosen ahead of the laptop integrated camera.
-    """
+    """Open the first working device in the configured index order."""
+    clear_last_error()
     for index in camera_index_order():
         cap = try_open_camera(index)
         if cap is not None:
             return cap, index
-    logger.error("No camera opened; tried indices %s", camera_index_order())
+    tried = camera_index_order()
+    _set_last_error(
+        f"USB camera not detected. Tried indices {tried}. "
+        "Check Device Manager and cable, then click Reload Camera."
+    )
+    logger.error("No camera opened; tried indices %s", tried)
     return None, None
 
 

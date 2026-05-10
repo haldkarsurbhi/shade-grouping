@@ -43,7 +43,11 @@ const Sidebar = ({ page, setPage }) => {
             </nav>
 
             <div className="sidebar-footer">
-                <div className="nav-item">
+                <div
+                    className={`nav-item ${page === 'config' ? 'active' : ''}`}
+                    onClick={() => setPage('config')}
+                    style={{ cursor: 'pointer' }}
+                >
                     <Settings size={18} />
                     <span>Config</span>
                 </div>

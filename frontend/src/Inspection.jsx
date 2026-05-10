@@ -1,23 +1,23 @@
 import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
-import { Camera, Save, Layers, Printer, RefreshCw } from 'lucide-react';
+import { Camera, Save, Printer, RefreshCw, Upload } from 'lucide-react';
 import './styles.css';
 import API from './api/api';
+import { normalizeInspectionRecord } from './utils/shadeRules';
 
-const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRegroup }) => {
+const Inspection = ({ activeRoll: initialRoll, onInspectionComplete }) => {
     const [sessionTests, setSessionTests] = useState([]);
     const [currentRoll, setCurrentRoll] = useState(initialRoll);
     const [previewImage, setPreviewImage] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [regroupBusy, setRegroupBusy] = useState(false);
     const [newLotBusy, setNewLotBusy] = useState(false);
     const [error, setError] = useState(null);
     const [streamKey, setStreamKey] = useState(0);
     const [cameraHint, setCameraHint] = useState('');
     const [pollPreviewUrl, setPollPreviewUrl] = useState(null);
-    const [camSwitchBusy, setCamSwitchBusy] = useState(false);
 
     const mjpegRef = useRef(null);
     const pollBlobRef = useRef(null);
+    const uploadInputRef = useRef(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -32,15 +32,14 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                     !ct.includes('application/json') ||
                     typeof data !== 'object' ||
                     data === null ||
-                    typeof data.ok !== 'boolean'
+                    typeof data.connected !== 'boolean'
                 ) {
                     throw new Error('not_api');
                 }
-                const ord = (data.try_order || []).join('→');
                 setCameraHint(
-                    data.ok
-                        ? `Camera OK · device ${data.index ?? '?'} · try ${ord || '—'}`
-                        : `No camera yet · try order ${ord || '—'} (Use USB/Sony first)`
+                    data.connected
+                        ? `Camera connected · device ${data.active_index ?? '?'}`
+                        : data.last_error || 'USB camera not detected. Check cable and click Reload Camera.'
                 );
             } catch {
                 if (!cancelled) {
@@ -96,39 +95,14 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
         setStreamKey((k) => k + 1);
     }, []);
 
-    const postCameraPreference = useCallback(
-        async (mode) => {
-            setCamSwitchBusy(true);
-            try {
-                const fd = new FormData();
-                fd.append('mode', mode);
-                await API.post('/camera-preference', fd);
-                reloadStream();
-            } catch {
-                alert('Could not change camera preference. Is the backend running?');
-            } finally {
-                setCamSwitchBusy(false);
-            }
-        },
-        [reloadStream]
-    );
-
-    const postCameraIndex = useCallback(
-        async (index) => {
-            setCamSwitchBusy(true);
-            try {
-                const fd = new FormData();
-                fd.append('index', String(index));
-                await API.post('/camera-use-index', fd);
-                reloadStream();
-            } catch {
-                alert('Could not switch camera index.');
-            } finally {
-                setCamSwitchBusy(false);
-            }
-        },
-        [reloadStream]
-    );
+    const reloadCamera = useCallback(async () => {
+        try {
+            await API.post('/camera-reload');
+            reloadStream();
+        } catch {
+            setError('USB camera not detected. Check cable and Device Manager, then click Reload Camera.');
+        }
+    }, [reloadStream]);
 
     useEffect(() => {
         if (currentRoll.imageUrl) {
@@ -209,7 +183,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
         const matchesShade = (item) => {
             const sh = norm(item.shade ?? item.shadeGroup);
             const t = norm(shade);
-            if (t === 'D') return sh === 'D' || sh === 'REJECT';
             return sh === t;
         };
         const seen = new Set();
@@ -250,8 +223,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                 blob = await snapVideoFrame();
             }
             if (!blob) {
-                const msg =
-                    'No frame from camera. Check /camera-status in browser (proxy to backend) and USB permissions.';
+                const msg = 'USB camera not detected. Check cable and Device Manager, then click Reload Camera.';
                 setError(msg);
                 alert(msg);
                 setLoading(false);
@@ -270,7 +242,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             const imageUrl = data.image ? `${imageBaseUrl}${data.image}` : null;
             const lab = Array.isArray(data.lab) && data.lab.length >= 3 ? data.lab : null;
 
-            const newTest = {
+            const newTest = normalizeInspectionRecord({
                 id: typeof data.capture_id === 'number' ? data.capture_id : Date.now(),
                 persistedFromApi: true,
                 date: new Date().toISOString().split('T')[0],
@@ -287,7 +259,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                 buyer: buyerInput,
                 supplier: supplierInput,
                 orderId: 'ORD-DEMO',
-            };
+            });
 
             setSessionTests((prev) => [newTest, ...prev]);
             onInspectionComplete(newTest);
@@ -302,6 +274,56 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
             alert(message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleUploadImage = async (file) => {
+        if (!file) return;
+        if (!supplierInput.trim()) {
+            alert('Please enter a Supplier name.');
+            return;
+        }
+        setError(null);
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('roll_no', rollInput);
+            formData.append('quantity', Number(qtyInput) || 0);
+            formData.append('buyer', buyerInput || '');
+            formData.append('supplier', supplierInput || '');
+            formData.append('image', file, file.name || `${rollInput}.jpg`);
+
+            const { data } = await API.post('/analyze', formData);
+            const imageUrl = data.image ? `${imageBaseUrl}${data.image}` : null;
+            const lab = Array.isArray(data.lab) && data.lab.length >= 3 ? data.lab : null;
+            const newTest = normalizeInspectionRecord({
+                id: typeof data.capture_id === 'number' ? data.capture_id : Date.now(),
+                persistedFromApi: true,
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                rollNo: data.roll_no,
+                quantity: data.quantity,
+                deltaE: data.delta_e,
+                shade: data.shade_group,
+                shadeGroup: data.shade_group,
+                decision: data.decision,
+                image: imageUrl,
+                lab,
+                isLotReference: !!data.is_lot_reference,
+                buyer: buyerInput,
+                supplier: supplierInput,
+                orderId: 'ORD-DEMO',
+            });
+            setSessionTests((prev) => [newTest, ...prev]);
+            onInspectionComplete(newTest);
+            setCurrentRoll((prev) => ({ ...prev, imageUrl }));
+        } catch (err) {
+            const message = err.response?.data?.error || err.message || 'Upload analysis failed';
+            setError(message);
+            alert(message);
+        } finally {
+            setLoading(false);
+            if (uploadInputRef.current) uploadInputRef.current.value = '';
         }
     };
 
@@ -544,61 +566,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
         }, 8000);
     };
 
-    const handleRegroupByL = async () => {
-        const rollsPayload = sessionTests
-            .map((t) => {
-                const lab = t.lab;
-                const L = lab?.[0];
-                if (L == null || Number.isNaN(Number(L))) return null;
-                return { roll_no: t.rollNo, L_star: Number(L) };
-            })
-            .filter(Boolean);
-        if (!rollsPayload.length) {
-            alert('No scans with L* in this session. Capture rolls using the backend analyze step first.');
-            return;
-        }
-        setRegroupBusy(true);
-        setError(null);
-        try {
-            const { data } = await API.post('/regroup-lightness', { rolls: rollsPayload });
-            const list = data?.rolls;
-            if (!Array.isArray(list)) {
-                throw new Error('Invalid response from regroup-lightness');
-            }
-            const byRoll = new Map(list.map((r) => [r.roll_no, r]));
-            const nextSession = sessionTests.map((t) => {
-                const u = byRoll.get(t.rollNo);
-                if (!u) return t;
-                return {
-                    ...t,
-                    shade: u.shade_group,
-                    shadeGroup: u.shade_group,
-                    decision: u.decision,
-                };
-            });
-            setSessionTests(nextSession);
-            if (onHistoryRegroup) {
-                const updates = nextSession
-                    .filter((t) => byRoll.has(t.rollNo))
-                    .map((t) => ({
-                        rollNo: t.rollNo,
-                        shadeGroup: byRoll.get(t.rollNo).shade_group,
-                        decision: byRoll.get(t.rollNo).decision,
-                    }));
-                onHistoryRegroup(updates);
-            }
-        } catch (err) {
-            const msg =
-                err.response?.data?.error ||
-                err.message ||
-                'Regroup failed. Is the backend running?';
-            setError(msg);
-            alert(msg);
-        } finally {
-            setRegroupBusy(false);
-        }
-    };
-
     return (
         <div className="operator-screen">
             <section className="control-bar-dense">
@@ -646,47 +613,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         </div>
                         <div className="inspection-camera-inline">
                             <span className="inspection-camera-label">Camera</span>
-                            <div className="camera-actions-inner">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary btn-compact"
-                                    disabled={camSwitchBusy}
-                                    onClick={() => postCameraPreference('usb_first')}
-                                    title="Try indices 1,2,3 before 0 — use external Sony/USB"
-                                >
-                                    USB / Sony first
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary btn-compact"
-                                    disabled={camSwitchBusy}
-                                    onClick={() => postCameraPreference('laptop_first')}
-                                >
-                                    Laptop first
-                                </button>
-                                <label htmlFor="insp-cam-index" className="camera-index-label">
-                                    Index
-                                    <select
-                                        id="insp-cam-index"
-                                        disabled={camSwitchBusy}
-                                        defaultValue=""
-                                        onChange={(e) => {
-                                            const v = e.target.value;
-                                            if (v === '') return;
-                                            postCameraIndex(parseInt(v, 10));
-                                            e.target.value = '';
-                                        }}
-                                        className="camera-index-select"
-                                    >
-                                        <option value="">—</option>
-                                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                                            <option key={i} value={i}>
-                                                {i}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-                            </div>
                         </div>
                     </div>
 
@@ -694,9 +620,24 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                         <button className="btn btn-primary btn-compact" onClick={handleCapture} disabled={loading}>
                             <Camera size={16} /> {loading ? 'Analyzing…' : 'Capture Scan'}
                         </button>
-                        <button type="button" className="btn btn-secondary btn-compact" onClick={reloadStream}>
-                            Reload stream
+                        <button type="button" className="btn btn-secondary btn-compact" onClick={reloadCamera}>
+                            Reload Camera
                         </button>
+                        <button
+                            type="button"
+                            className="btn btn-secondary btn-compact"
+                            onClick={() => uploadInputRef.current?.click()}
+                            disabled={loading}
+                        >
+                            <Upload size={16} /> Upload Image
+                        </button>
+                        <input
+                            ref={uploadInputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => handleUploadImage(e.target.files?.[0] || null)}
+                        />
                         <button
                             type="button"
                             className="btn btn-secondary btn-compact"
@@ -705,15 +646,6 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                             title="Clear session and reset reference — next scan is ΔE 0, others compare to it"
                         >
                             <RefreshCw size={16} /> {newLotBusy ? 'Resetting…' : 'New lot'}
-                        </button>
-                        <button
-                            type="button"
-                            className="btn btn-secondary btn-compact"
-                            onClick={handleRegroupByL}
-                            disabled={regroupBusy || sessionTests.length === 0}
-                            title="Reassign A–D by L* quartiles within this session (light→dark)"
-                        >
-                            <Layers size={16} /> {regroupBusy ? 'Regrouping…' : 'Regroup by L*'}
                         </button>
                         <button type="button" className="btn btn-secondary btn-compact" onClick={handleManualSave}>
                             <Save size={16} /> Manual Save
@@ -731,7 +663,7 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                 </div>
                 <p className="control-bar-hint">
                     <strong>ΔE</strong> is measured vs the <strong>first capture in this lot</strong> (that row shows{' '}
-                    <strong>0</strong> as the reference). Later rolls get A–D / REJECT from your ΔE rules. Use{' '}
+                    <strong>0</strong> as the reference). Later rolls get A–E from your ΔE rules. Use{' '}
                     <strong>New lot</strong> before another batch; restart the server also clears the reference.
                 </p>
                 {error && <div className="inspection-error-msg">{error}</div>}
@@ -838,6 +770,19 @@ const Inspection = ({ activeRoll: initialRoll, onInspectionComplete, onHistoryRe
                                     </div>
                                 ))}
                                 {getRecentByShade('D').length === 0 && (
+                                    <span className="empty-text">No Reference Image</span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="shade-group-card">
+                            <div className="shade-card-header s-e-text">Shade E</div>
+                            <div className="preview-grid">
+                                {getRecentByShade('E').map((item, i) => (
+                                    <div key={i} className="preview-thumb" onClick={() => setPreviewImage(item.image)}>
+                                        <img src={item.image} alt="Ref E" />
+                                    </div>
+                                ))}
+                                {getRecentByShade('E').length === 0 && (
                                     <span className="empty-text">No Reference Image</span>
                                 )}
                             </div>

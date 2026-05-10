@@ -7,11 +7,35 @@ import Sidebar from './Sidebar';
 import Dashboard from './Dashboard';
 import Inspection from './Inspection';
 import Logs from './Logs';
+import Config from './Config';
 import { shadeHistory } from './data';
+import { decisionFromShade, normalizeInspectionRecord, normalizeShade } from './utils/shadeRules';
 
 const DEFAULT_IMAGE_BY_ROLL = new Map(
   shadeHistory.map((x) => [String(x.rollNo).trim().toUpperCase(), x.image])
 );
+const DELETED_LOTS_STORAGE_KEY = 'shade_deleted_lots_v1';
+const PLACEHOLDER_LOT_IDS = new Set(['', 'CAPTURE', 'ORD-DEMO', '-']);
+
+function normalizeLotPart(value, fallback) {
+  const s = String(value || '').trim().toUpperCase();
+  if (!s) return fallback;
+  return s.replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '') || fallback;
+}
+
+function deriveLotId(row) {
+  const raw = String(row?.orderId ?? row?.lotId ?? '').trim();
+  if (raw && !PLACEHOLDER_LOT_IDS.has(raw.toUpperCase())) return raw;
+  const datePart = normalizeLotPart(row?.date, 'NO-DATE');
+  const buyerPart = normalizeLotPart(row?.buyer, 'NO-BUYER');
+  const supplierPart = normalizeLotPart(row?.supplier, 'NO-SUPPLIER');
+  return `LOT-${datePart}-${buyerPart}-${supplierPart}`;
+}
+
+function ensureLotId(row) {
+  const lotId = deriveLotId(row);
+  return { ...row, orderId: lotId, lotId };
+}
 
 function resolveHistoryImageUrl(imagePath) {
   if (imagePath == null || imagePath === '') return null;
@@ -22,13 +46,47 @@ function resolveHistoryImageUrl(imagePath) {
   return `${base}${s.startsWith('/') ? s : `/${s}`}`;
 }
 
+const normalizedSeedHistory = shadeHistory.map((row) => ensureLotId(normalizeInspectionRecord(row)));
+
 const App = () => {
   // Simple Router State
   const [page, setPage] = useState('dashboard');
 
   // Global Data State: default to src/data.js so deployed app reflects data.js updates
-  const [history, setHistory] = useState(() => [...shadeHistory]);
+  const [deletedLots, setDeletedLots] = useState(() => {
+    try {
+      const raw = localStorage.getItem(DELETED_LOTS_STORAGE_KEY);
+      const parsed = JSON.parse(raw || '[]');
+      return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [history, setHistory] = useState(() =>
+    normalizedSeedHistory.filter((row) => !deletedLots.includes(deriveLotId(row)))
+  );
   const [loadError, setLoadError] = useState(false);
+
+  const persistDeletedLots = (updater) => {
+    setDeletedLots((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      localStorage.setItem(DELETED_LOTS_STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const handleDeleteLot = (lotId) => {
+    const target = String(lotId || '').trim();
+    if (!target) return;
+    persistDeletedLots((prev) => (prev.includes(target) ? prev : [...prev, target]));
+    setHistory((prev) => prev.filter((row) => deriveLotId(row) !== target));
+  };
+
+  const handleRestoreDeletedLots = () => {
+    localStorage.removeItem(DELETED_LOTS_STORAGE_KEY);
+    setDeletedLots([]);
+    setHistory([...normalizedSeedHistory]);
+  };
 
   // Reload captures saved by the backend (images under /images + inspection_records.jsonl)
   useEffect(() => {
@@ -37,10 +95,16 @@ const App = () => {
       try {
         const { data } = await API.get('/inspection-records');
         if (cancelled || !data?.records?.length) return;
-        const mapped = data.records.map((r) => ({
-          ...r,
-          image: resolveHistoryImageUrl(r.image),
-        }));
+        const mapped = data.records
+          .map((r) =>
+            ensureLotId(
+              normalizeInspectionRecord({
+                ...r,
+                image: resolveHistoryImageUrl(r.image),
+              })
+            )
+          )
+          .filter((row) => !deletedLots.includes(deriveLotId(row)));
         setHistory((prev) => {
           const seen = new Set(mapped.map((x) => x.id));
           const rest = prev.filter((row) => !seen.has(row.id));
@@ -53,7 +117,7 @@ const App = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [deletedLots]);
 
   // Optional: load CSV from public/inspection_data.csv; if present, it overrides data.js
   useEffect(() => {
@@ -103,21 +167,14 @@ const App = () => {
             let dE = parseFloat(deltaE);
             if (isNaN(dE)) dE = 0;
 
-            // Shade Group Logic (matches backend assign_shade_group: reject only if ΔE >= 5)
+            // Shade Group Logic
             if (!shadeGroup || !shadeGroup.trim()) {
-              if (dE >= 5) shadeGroup = 'REJECT';
-              else if (dE < 1.25) shadeGroup = 'A';
-              else if (dE < 2.5) shadeGroup = 'B';
-              else if (dE < 3.75) shadeGroup = 'C';
-              else shadeGroup = 'D';
+              shadeGroup = normalizeShade('', dE);
             }
 
             // Verdict Logic
             if (!verdict || !verdict.trim()) {
-              const s = shadeGroup.toUpperCase().trim();
-              if (s === 'REJECT' || dE >= 5) verdict = 'REJECT';
-              else if (['A', 'B', 'C', 'D'].includes(s)) verdict = 'ACCEPT';
-              else verdict = 'ACCEPT';
+              verdict = decisionFromShade(shadeGroup);
             }
 
             // Normalize Verification Text
@@ -125,28 +182,25 @@ const App = () => {
             if (verdict === 'ACCEPTED') verdict = 'ACCEPT';
             if (verdict === 'REJECTED') verdict = 'REJECT';
 
-            // Shade D is not a reject; only ΔE ≥ 5 (or explicit REJECT group) is rejected
-            const sg = String(shadeGroup || '').toUpperCase().trim();
-            if (verdict === 'REJECT' && dE < 5 && sg === 'D') {
-              verdict = 'ACCEPT';
-            }
+            const normalizedShade = normalizeShade(shadeGroup, dE);
+            const normalizedDecision = decisionFromShade(normalizedShade);
 
             // Ensure Date has a default if really missing
             if (!date) date = new Date().toISOString().split('T')[0];
 
-            return {
+            return ensureLotId(normalizeInspectionRecord({
               id: `csv-${index}`,
               date: date,
-              rollNo: rollId || `UNK-${index}`,
+              rollNo: rollId || String(index + 1).padStart(3, '0'),
               buyer: buyer,
               supplier: supplier,
               quantity: Number(quantity) || 0,
               deltaE: dE,
-              shade: shadeGroup,
-              decision: verdict,
+              shade: normalizedShade,
+              decision: normalizedDecision,
               image: image && String(image).trim() ? image.trim() : null
-            };
-          });
+            }));
+          }).filter((row) => !deletedLots.includes(deriveLotId(row)));
           // Keep in-memory captures and server-persisted rows; CSV supplements demo data.
           setHistory((prev) => {
             const keep = prev.filter(
@@ -166,11 +220,11 @@ const App = () => {
         setLoadError(false);
       }
     });
-  }, []);
+  }, [deletedLots]);
 
   // Default state for Active Inspection
   const [activeRoll] = useState({
-    rollNo: "R-2026-9001",
+    rollNo: "001",
     quantity: 120,
     buyer: "Zara International",
     deltaE: 0.00,
@@ -180,27 +234,9 @@ const App = () => {
 
   const handleInspectionComplete = (newTest) => {
     // Merge for UI consistency during session
-    setHistory(prev => [newTest, ...prev]);
-  };
-
-  const handleHistoryRegroup = (updates) => {
-    if (!updates?.length) return;
-    const m = new Map(
-      updates.map((x) => [String(x.rollNo).trim().toUpperCase(), x])
-    );
-    setHistory((prev) =>
-      prev.map((h) => {
-        const k = String(h.rollNo).trim().toUpperCase();
-        const u = m.get(k);
-        if (!u) return h;
-        return {
-          ...h,
-          shade: u.shadeGroup,
-          shadeGroup: u.shadeGroup,
-          decision: u.decision,
-        };
-      })
-    );
+    const normalized = ensureLotId(normalizeInspectionRecord(newTest));
+    if (deletedLots.includes(deriveLotId(normalized))) return;
+    setHistory(prev => [normalized, ...prev]);
   };
 
   return (
@@ -218,7 +254,13 @@ const App = () => {
             <span className="crumb-module">SHADE QC</span>
             <ChevronRight size={14} className="crumb-sep" />
             <span className="crumb-page">
-              {page === 'dashboard' ? 'OVERVIEW' : 'LIVE INSPECTION'}
+              {page === 'dashboard'
+                ? 'OVERVIEW'
+                : page === 'inspection'
+                  ? 'LIVE INSPECTION'
+                  : page === 'logs'
+                    ? 'INSPECTION LOGS'
+                    : 'CONFIGURATION'}
             </span>
           </div>
 
@@ -247,12 +289,20 @@ const App = () => {
           <Inspection
             activeRoll={activeRoll}
             onInspectionComplete={handleInspectionComplete}
-            onHistoryRegroup={handleHistoryRegroup}
           />
         )}
 
         {page === 'logs' && (
-          <Logs history={history} />
+          <Logs
+            history={history}
+            onDeleteLot={handleDeleteLot}
+            onRestoreLots={handleRestoreDeletedLots}
+            deletedLotCount={deletedLots.length}
+          />
+        )}
+
+        {page === 'config' && (
+          <Config />
         )}
       </main>
     </div>

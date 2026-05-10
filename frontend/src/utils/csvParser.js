@@ -68,14 +68,14 @@ export const parseInspectionCSV = (csvText) => {
             // Case A: Verdict missing, calculate from Shade
             if (shade) {
                 const s = shade.toUpperCase();
-                if (s === 'REJECT') decision = 'REJECT';
-                else if (['A', 'B', 'D'].includes(s)) decision = 'ACCEPT';
-                else if (s === 'C') decision = 'HOLD';
+                if (s === 'REJECT' || s === 'E') decision = 'REJECT';
+                else if (['A', 'B', 'C'].includes(s)) decision = 'ACCEPT';
+                else if (s === 'D') decision = 'HOLD';
             }
             // Case B: Verdict AND Shade missing, calculate from DeltaE (match backend assign_shade_group)
             else if (!isNaN(deltaE)) {
                 if (deltaE >= 5) {
-                    shade = 'REJECT';
+                    shade = 'E';
                     decision = 'REJECT';
                 } else if (deltaE < 1.25) {
                     shade = 'A';
@@ -88,7 +88,7 @@ export const parseInspectionCSV = (csvText) => {
                     decision = 'ACCEPT';
                 } else {
                     shade = 'D';
-                    decision = 'ACCEPT';
+                    decision = 'HOLD';
                 }
             } else {
                 // If all missing, default to Unknown/Hold or similar safety? 
@@ -113,7 +113,7 @@ export const parseInspectionCSV = (csvText) => {
         parsedData.push({
             id: i, // Simple unique ID
             date: date || new Date().toISOString().split('T')[0],
-            rollNo: rollNo || `UNK-${i}`,
+            rollNo: rollNo || String(i).padStart(3, '0'),
             buyer,
             supplier,
             quantity: quantity ? Number(quantity) : 0,
